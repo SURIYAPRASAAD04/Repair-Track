@@ -19,17 +19,28 @@ async function createSession(userId) {
   }
 
   let executablePath = '';
-  try {
-    // @sparticuz/chromium provides a self-contained binary with all shared libraries
-    // bundled — required for serverless environments like Render Free Tier
-    const chromium = require('@sparticuz/chromium');
-    executablePath = await chromium.executablePath();
-  } catch(e) {
-    // Fallback to puppeteer-core's bundled chrome if sparticuz fails
+
+  // In Docker, PUPPETEER_EXECUTABLE_PATH is set to /usr/bin/chromium
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    console.log(`[WhatsApp] Using Chrome from ENV: ${executablePath}`);
+  } else {
+    // Local dev: try puppeteer-core default, then common system paths
     try {
       const puppeteer = require('puppeteer-core');
       executablePath = puppeteer.executablePath();
-    } catch(e2) { /* use system defaults */ }
+    } catch(e) {}
+    
+    if (!executablePath) {
+      const { existsSync } = require('fs');
+      for (const p of ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser', '/usr/bin/chromium']) {
+        if (existsSync(p)) { executablePath = p; break; }
+      }
+    }
+  }
+
+  if (executablePath) {
+    console.log(`[WhatsApp] Executable: ${executablePath}`);
   }
 
   const puppeteerOptions = {
@@ -58,22 +69,8 @@ async function createSession(userId) {
     ]
   };
 
-  let exePath = process.env.PUPPETEER_EXECUTABLE_PATH || executablePath;
-  
-  // Auto-detect native pre-installed Chrome on linux environments like Render
-  if (!process.env.PUPPETEER_EXECUTABLE_PATH) {
-    if (fs.existsSync('/usr/bin/google-chrome')) {
-      exePath = '/usr/bin/google-chrome';
-    } else if (fs.existsSync('/usr/bin/google-chrome-stable')) {
-      exePath = '/usr/bin/google-chrome-stable';
-    } else if (fs.existsSync('/usr/bin/chromium-browser')) {
-      exePath = '/usr/bin/chromium-browser';
-    }
-  }
-
-  if (exePath) {
-    puppeteerOptions.executablePath = exePath;
-    console.log(`[WhatsApp] Using Chrome at: ${exePath}`);
+  if (executablePath) {
+    puppeteerOptions.executablePath = executablePath;
   }
 
   const client = new Client({
