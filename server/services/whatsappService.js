@@ -34,6 +34,7 @@ async function createSession(userId) {
 
   const puppeteerOptions = {
     headless: true,
+    protocolTimeout: 120000, // 2 minutes — needed for slow free-tier CPUs
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -41,7 +42,19 @@ async function createSession(userId) {
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
       '--no-zygote',
-      '--disable-gpu'
+      '--disable-gpu',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-default-apps',
+      '--mute-audio',
+      '--no-default-browser-check',
+      '--disable-hang-monitor',
+      '--disable-popup-blocking',
+      '--disable-prompt-on-repost',
+      '--disable-sync',
+      '--disable-translate',
+      '--metrics-recording-only',
+      '--safebrowsing-disable-auto-update'
     ]
   };
 
