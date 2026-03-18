@@ -18,30 +18,21 @@ async function createSession(userId) {
     return { success: true, message: 'Already initializing' };
   }
 
+  // Resolve Chrome executable path
   let executablePath = '';
 
-  // In Docker, PUPPETEER_EXECUTABLE_PATH is set to /usr/bin/chromium
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    // Docker or explicit env config
     executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-    console.log(`[WhatsApp] Using Chrome from ENV: ${executablePath}`);
   } else {
-    // Local dev: try puppeteer-core default, then common system paths
+    // Full puppeteer auto-downloads Chrome — use its path
     try {
-      const puppeteer = require('puppeteer-core');
+      const puppeteer = require('puppeteer');
       executablePath = puppeteer.executablePath();
     } catch(e) {}
-    
-    if (!executablePath) {
-      const { existsSync } = require('fs');
-      for (const p of ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser', '/usr/bin/chromium']) {
-        if (existsSync(p)) { executablePath = p; break; }
-      }
-    }
   }
 
-  if (executablePath) {
-    console.log(`[WhatsApp] Executable: ${executablePath}`);
-  }
+  console.log(`[WhatsApp] Using Chrome: ${executablePath || 'default'}`);
 
   const puppeteerOptions = {
     headless: true,
