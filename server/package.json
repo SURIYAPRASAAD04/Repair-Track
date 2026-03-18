@@ -5,8 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "postinstall": "npx @sparticuz/chromium@latest prepare"
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "@sparticuz/chromium": "^131.0.1",
