@@ -1,5 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
+const path = require('path');
 const Shop = require('../models/Shop');
 const MessageLog = require('../models/MessageLog');
 const Job = require('../models/Job');
@@ -19,6 +20,7 @@ async function createSession(userId) {
     } catch(e) { /* fallback to default */ }
 
     const puppeteerOptions = {
+        headless: true,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -30,12 +32,16 @@ async function createSession(userId) {
         ]
     };
 
-    if (executablePath) {
-       puppeteerOptions.executablePath = executablePath;
+    const exePath = process.env.PUPPETEER_EXECUTABLE_PATH || executablePath;
+    if (exePath) {
+       puppeteerOptions.executablePath = exePath;
     }
 
     const client = new Client({
-      authStrategy: new LocalAuth({ clientId: userId }),
+      authStrategy: new LocalAuth({ 
+        clientId: userId,
+        dataPath: path.join(__dirname, '../.wwebjs_auth')
+      }),
       puppeteer: puppeteerOptions
     });
 

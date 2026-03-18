@@ -5,7 +5,8 @@ const connect = async (req, res) => {
     const result = await whatsappService.createSession(req.user.id);
     res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to initialize WhatsApp session' });
+    console.error('WhatsApp connect endpoint error:', error);
+    res.status(500).json({ error: 'Failed to initialize WhatsApp session', details: error.message });
   }
 };
 
