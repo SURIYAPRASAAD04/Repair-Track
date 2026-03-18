@@ -20,9 +20,17 @@ async function createSession(userId) {
 
   let executablePath = '';
   try {
-    const puppeteer = require('puppeteer');
-    executablePath = puppeteer.executablePath();
-  } catch(e) { /* fallback to default */ }
+    // @sparticuz/chromium provides a self-contained binary with all shared libraries
+    // bundled — required for serverless environments like Render Free Tier
+    const chromium = require('@sparticuz/chromium');
+    executablePath = await chromium.executablePath();
+  } catch(e) {
+    // Fallback to puppeteer-core's bundled chrome if sparticuz fails
+    try {
+      const puppeteer = require('puppeteer-core');
+      executablePath = puppeteer.executablePath();
+    } catch(e2) { /* use system defaults */ }
+  }
 
   const puppeteerOptions = {
     headless: true,

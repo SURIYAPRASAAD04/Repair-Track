@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [polling, setPolling] = useState(false);
   const [qrSuccess, setQrSuccess] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [qrError, setQrError] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -30,6 +31,15 @@ export default function Dashboard() {
   // Poll for connection success
   useEffect(() => {
     if (!polling) return;
+
+    // Timeout: if no QR appears within 90 seconds, show error
+    const timeout = setTimeout(() => {
+      if (!qrCode && !qrSuccess && !isAuthenticating) {
+        setPolling(false);
+        setQrError(true);
+        toast.error('Could not reach WhatsApp service. Please try again.');
+      }
+    }, 90000);
     
     let interval = setInterval(async () => {
       try {
@@ -52,6 +62,7 @@ export default function Dashboard() {
           setQrCode(null);
         } else if (res.data.qr) {
           setIsAuthenticating(false);
+          setQrError(false);
           setQrCode(res.data.qr);
         }
       } catch (err) {
@@ -59,7 +70,7 @@ export default function Dashboard() {
       }
     }, 2000);
 
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
   }, [polling, user._id]);
 
   const fetchDashboardData = async () => {
@@ -81,6 +92,7 @@ export default function Dashboard() {
       setIsConnecting(true);
       setQrSuccess(false);
       setIsAuthenticating(false);
+      setQrError(false);
       setQrCode(null);
       await api.post('/api/whatsapp/connect');
       setShowQR(true);
@@ -89,6 +101,19 @@ export default function Dashboard() {
       toast.error('Failed to initialize session');
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const handleRetryConnect = async () => {
+    setQrError(false);
+    setQrCode(null);
+    setIsAuthenticating(false);
+    setQrSuccess(false);
+    try {
+      await api.post('/api/whatsapp/connect');
+      setPolling(true);
+    } catch (error) {
+      toast.error('Failed to initialize session');
     }
   };
 
@@ -204,7 +229,9 @@ export default function Dashboard() {
           qrCode={qrCode} 
           isSuccess={qrSuccess}
           isAuthenticating={isAuthenticating}
-          onClose={() => { setShowQR(false); setPolling(false); }} 
+          isError={qrError}
+          onRetry={handleRetryConnect}
+          onClose={() => { setShowQR(false); setPolling(false); setQrError(false); }} 
         />
       )}
     </div>

@@ -1,7 +1,7 @@
-import { X, CheckCircle2 } from 'lucide-react';
+import { X, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import WhatsAppLogo from './WhatsAppLogo';
 
-export default function QRModal({ qrCode, onClose, isSuccess, isAuthenticating }) {
+export default function QRModal({ qrCode, onClose, isSuccess, isAuthenticating, isError, onRetry }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200 p-0 md:p-4">
       <div className="bg-surface-card md:border border-surface-border rounded-none md:rounded-2xl shadow-xl w-full h-full md:h-auto md:max-w-sm overflow-hidden flex flex-col">
@@ -27,6 +27,22 @@ export default function QRModal({ qrCode, onClose, isSuccess, isAuthenticating }
               <p className="text-gray-800 text-lg font-bold">Successfully Connected!</p>
               <p className="text-gray-500 text-sm text-center mt-2">You can now send automated updates.</p>
             </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center">
+                <XCircle className="w-12 h-12 text-red-400" />
+              </div>
+              <div className="text-center">
+                <p className="text-gray-800 font-bold">Failed to Start</p>
+                <p className="text-gray-500 text-sm mt-1">The server couldn't launch WhatsApp.<br/>This may be a resource issue on the hosting plan.</p>
+              </div>
+              <button
+                onClick={onRetry}
+                className="flex items-center gap-2 px-5 py-2.5 bg-accent-green text-white rounded-xl font-semibold text-sm hover:bg-green-600 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" /> Try Again
+              </button>
+            </div>
           ) : isAuthenticating ? (
             <div className="flex flex-col items-center">
               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent-green mb-4"></div>
@@ -38,6 +54,7 @@ export default function QRModal({ qrCode, onClose, isSuccess, isAuthenticating }
             <div className="flex flex-col items-center">
               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent-green mb-4"></div>
               <p className="text-gray-500 text-sm font-medium">Generating secure QR code...</p>
+              <p className="text-gray-400 text-xs mt-2">This may take 30–60 seconds...</p>
             </div>
           )}
         </div>

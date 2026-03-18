@@ -6,16 +6,17 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "postinstall": "npx @sparticuz/chromium@latest prepare"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^131.0.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^7.0.0",
-    "puppeteer": "^24.39.1",
+    "puppeteer-core": "^24.39.1",
     "qrcode": "^1.5.3",
     "whatsapp-web.js": "^1.23.0"
   },
