@@ -218,7 +218,16 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
       }
 
       console.log(`[WhatsApp] sendMessage attempt ${attempt}/${MAX_SEND_RETRIES} to ${chatId}`);
-      await clients[userId].client.sendMessage(chatId, message);
+      
+      // Wrap sendMessage with a 60s timeout — on slow containers, 
+      // client.sendMessage() can hang forever without resolving or rejecting
+      const SEND_TIMEOUT = 60000; // 60 seconds
+      await Promise.race([
+        clients[userId].client.sendMessage(chatId, message),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('sendMessage timed out after 60s')), SEND_TIMEOUT)
+        )
+      ]);
 
       // ─── SUCCESS ───
       console.log(`[WhatsApp] Message SENT successfully to ${chatId} on attempt ${attempt}`);

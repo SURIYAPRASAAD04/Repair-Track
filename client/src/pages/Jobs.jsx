@@ -38,12 +38,7 @@ export default function Jobs() {
       setJobs([newJob, ...jobs]);
       setIsNewJobModalOpen(false);
       
-      if (res.data.job && !res.data.notificationSent) {
-        toast.success('Repair job created');
-        toast.error('WhatsApp failed to send message', { duration: 5000 });
-      } else {
-        toast.success('Repair job created & Customer notified!');
-      }
+      toast.success('Repair job created! WhatsApp notification sending...');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to create job');
     }
