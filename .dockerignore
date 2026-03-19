@@ -1,0 +1,12 @@
+node_modules
+.wwebjs_auth
+.wwebjs_cache
+.env
+.env.*
+npm-debug.log*
+.git
+.gitignore
+*.md
+client/node_modules
+server/node_modules
+server/.wwebjs_auth
