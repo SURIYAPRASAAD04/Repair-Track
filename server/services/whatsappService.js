@@ -65,7 +65,7 @@ async function createSession(userId) {
       '--disable-ipc-flooding-protection',
       '--metrics-recording-only',
       '--safebrowsing-disable-auto-update',
-      '--js-flags=--max-old-space-size=128'
+      // NOTE: No --js-flags heap limit — WhatsApp Web needs 256MB+ JS heap to function
     ]
   };
 
@@ -204,52 +204,81 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
 
   const chatId = `${cleanPhone}@c.us`;
 
-  await new Promise(r => setTimeout(r, 1500));
+  // ─── Retry logic: 3 attempts, 3s delay between each ───
+  const MAX_SEND_RETRIES = 3;
+  let lastError = null;
 
-  try {
-    await clients[userId].client.sendMessage(chatId, message);
+  for (let attempt = 1; attempt <= MAX_SEND_RETRIES; attempt++) {
+    try {
+      // Wait before sending (longer on slow containers to let WhatsApp Web stabilize)
+      await new Promise(r => setTimeout(r, 3000));
 
-    // Log successful message
-    await MessageLog.create({
-      shopId: userId,
-      jobId: jobId,
-      customerPhone: cleanPhone,
-      customerName: customerName,
-      messageContent: message,
-      triggerEvent: triggerEvent,
-      status: 'sent'
-    });
+      // Check client is still alive before each attempt
+      if (!clients[userId] || !clients[userId].ready) {
+        throw new Error('WhatsApp client disconnected during send');
+      }
 
-    // Update Job metrics if applicable
-    if (jobId) {
-      await Job.findByIdAndUpdate(jobId, {
-        lastMessageSent: new Date(),
-        $inc: { messagesSentCount: 1 }
-      });
+      console.log(`[WhatsApp] sendMessage attempt ${attempt}/${MAX_SEND_RETRIES} to ${chatId}`);
+      await clients[userId].client.sendMessage(chatId, message);
+
+      // ─── SUCCESS ───
+      console.log(`[WhatsApp] Message SENT successfully to ${chatId} on attempt ${attempt}`);
+
+      // Log successful message
+      await MessageLog.create({
+        shopId: userId,
+        jobId: jobId,
+        customerPhone: cleanPhone,
+        customerName: customerName,
+        messageContent: message,
+        triggerEvent: triggerEvent,
+        status: 'sent'
+      }).catch(e => console.error('MessageLog create failed:', e));
+
+      // Update Job metrics if applicable
+      if (jobId) {
+        await Job.findByIdAndUpdate(jobId, {
+          lastMessageSent: new Date(),
+          $inc: { messagesSentCount: 1 }
+        }).catch(e => console.error('Job metric update failed:', e));
+      }
+
+      return { success: true };
+
+    } catch (error) {
+      lastError = error;
+      console.error(`[WhatsApp] sendMessage attempt ${attempt} FAILED:`, error.message);
+
+      // If it's a timeout/evaluate error, wait longer before retrying
+      if (attempt < MAX_SEND_RETRIES) {
+        console.log(`[WhatsApp] Retrying send in 5s...`);
+        await new Promise(r => setTimeout(r, 5000));
+      }
     }
-
-    return { success: true };
-  } catch (error) {
-    console.error(`WhatsApp sendMessage error for user ${userId}:`, error);
-
-    // Log failed message
-    await MessageLog.create({
-      shopId: userId,
-      jobId: jobId,
-      customerPhone: cleanPhone,
-      customerName: customerName,
-      messageContent: message,
-      triggerEvent: triggerEvent,
-      status: 'failed',
-      errorReason: error.message || 'Unknown error'
-    });
-
-    if (error.message && error.message.includes('evaluate')) {
-      clients[userId].ready = false;
-      await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(err => console.error(err));
-    }
-    throw new Error('WhatsApp failed to send message');
   }
+
+  // ─── ALL RETRIES FAILED ───
+  console.error(`[WhatsApp] All ${MAX_SEND_RETRIES} send attempts failed for ${chatId}`);
+
+  // Log failed message
+  await MessageLog.create({
+    shopId: userId,
+    jobId: jobId,
+    customerPhone: cleanPhone,
+    customerName: customerName,
+    messageContent: message,
+    triggerEvent: triggerEvent,
+    status: 'failed',
+    errorReason: lastError?.message || 'All retry attempts failed'
+  }).catch(e => console.error('MessageLog create failed:', e));
+
+  // Mark as disconnected if it's a persistent Puppeteer error
+  if (lastError?.message && (lastError.message.includes('evaluate') || lastError.message.includes('timed out') || lastError.message.includes('destroyed'))) {
+    if (clients[userId]) clients[userId].ready = false;
+    await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(err => console.error(err));
+  }
+
+  throw new Error('WhatsApp failed to send message after multiple retries');
 }
 
 async function disconnectSession(userId) {

@@ -54,7 +54,7 @@ export default function Jobs() {
       const res = await api.put(`/api/jobs/${jobId}/status`, { status: newStatus });
       setJobs(jobs.map(j => j._id === jobId ? res.data : j));
       setSelectedJob(res.data); // Update modal data
-      toast.success('Status updated & Customer notified');
+      toast.success('Status updated successfully. WhatsApp notification sending...');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to update status');
       throw error;
