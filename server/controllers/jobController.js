@@ -86,8 +86,10 @@ const createJob = async (req, res) => {
     // 5. Populate customer data for the notification service and trigger the WhatsApp message
     await job.populate('customer');
     
-    // Fire and wait for notification to know if it sent correctly
-    let notificationSent = false;
+    // Respond IMMEDIATELY — send WhatsApp in background (fire-and-forget)
+    res.status(201).json({ job, notificationSent: false });
+
+    // Background: send WhatsApp notification (non-blocking)
     if (shopOwner.whatsappConnected) {
       try {
         const messageText = getMessageForStatus('Received', {
@@ -100,29 +102,27 @@ const createJob = async (req, res) => {
         });
         
         if (messageText) {
-          const sendResult = await sendMessage(
+          sendMessage(
             shopOwner._id, 
             job.customer.phone, 
             messageText,
             job._id,
             job.customer.name,
             'status_change:Received'
-          );
-          notificationSent = sendResult.success;
-          
-          if (notificationSent) {
-            await ActivityLog.findOneAndUpdate(
+          ).then(() => {
+            ActivityLog.findOneAndUpdate(
               { jobId: job._id, toStatus: 'Received' },
               { whatsappSent: true }
-            );
-          }
+            ).catch(e => console.error('ActivityLog update failed:', e));
+            console.log(`[WhatsApp] Received notification sent for ${job.jobId}`);
+          }).catch(err => {
+            console.error('Initial WhatsApp notification failed:', err.message);
+          });
         }
       } catch (err) {
         console.error('Initial WhatsApp notification failed:', err.message);
       }
     }
-
-    res.status(201).json({ job, notificationSent });
   } catch (error) {
     console.error('Create Job Error:', error);
     res.status(500).json({ error: 'Failed to create repair job' });
@@ -191,10 +191,28 @@ const updateJobStatus = async (req, res) => {
       return res.status(400).json({ error: 'Job is already in this status' });
     }
 
-    // Trigger WhatsApp Notification FIRST so we can abort status update if it fails
+    const previousStatus = job.status;
     const shopOwner = await Shop.findById(req.user.id);
-    let notificationSent = false;
-    
+
+    // Update status and history in DB FIRST (fast)
+    job.status = status;
+    job.statusHistory.push({ status });
+    await job.save();
+
+    // Log to ActivityLog
+    await ActivityLog.create({
+      jobId: job._id,
+      shopId: shopOwner._id,
+      fromStatus: previousStatus,
+      toStatus: status,
+      changedBy: 'shop_owner',
+      whatsappSent: false  // Will be updated in background
+    });
+
+    // Respond IMMEDIATELY — don't make the user wait for WhatsApp
+    res.status(200).json(job);
+
+    // Background: send WhatsApp notification (fire-and-forget, non-blocking)
     if (shopOwner.whatsappConnected) {
       try {
         const messageText = getMessageForStatus(status, {
@@ -207,37 +225,27 @@ const updateJobStatus = async (req, res) => {
         });
         
         if (messageText) {
-          const sendResult = await sendMessage(
+          sendMessage(
             shopOwner._id, 
             job.customer.phone, 
             messageText,
             job._id,
             job.customer.name,
             `status_change:${status}`
-          );
-          notificationSent = sendResult.success;
+          ).then(() => {
+            ActivityLog.findOneAndUpdate(
+              { jobId: job._id, toStatus: status },
+              { whatsappSent: true }
+            ).catch(e => console.error('ActivityLog update failed:', e));
+            console.log(`[WhatsApp] ${status} notification sent for ${job.jobId}`);
+          }).catch(err => {
+            console.error(`[WhatsApp] ${status} notification FAILED for ${job.jobId}:`, err.message);
+          });
         }
       } catch (err) {
         console.error('Status update WhatsApp notification failed:', err.message);
       }
     }
-
-    // Log to ActivityLog
-    await ActivityLog.create({
-      jobId: job._id,
-      shopId: shopOwner._id,
-      fromStatus: job.status,
-      toStatus: status,
-      changedBy: 'shop_owner',
-      whatsappSent: notificationSent
-    });
-
-    // Update status and history
-    job.status = status;
-    job.statusHistory.push({ status });
-    await job.save();
-
-    res.status(200).json(job);
   } catch (error) {
     console.error('Update Job Status Error:', error);
     res.status(500).json({ error: 'Failed to update job status' });

@@ -36,7 +36,7 @@ async function createSession(userId) {
 
   const puppeteerOptions = {
     headless: true,
-    protocolTimeout: 180000, // 3 minutes — Render free-tier CPUs are very slow
+    protocolTimeout: 300000, // 5 minutes — Railway containers have slow CPUs
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
