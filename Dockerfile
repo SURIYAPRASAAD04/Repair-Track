@@ -14,7 +14,7 @@ RUN npm install --omit=dev
 # ─── Stage 2: Production ───
 FROM node:20-slim
 
-# Install ONLY the system libs Chrome needs to run (NOT chromium itself)
+# Install ALL system libs Chrome 127 needs to run (NOT chromium itself)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   dbus \
@@ -25,6 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libxcomposite1 \
   libxdamage1 \
   libxrandr2 \
+  libxfixes3 \
+  libxext6 \
+  libxkbcommon0 \
   libgbm-dev \
   libpango-1.0-0 \
   libcairo2 \
