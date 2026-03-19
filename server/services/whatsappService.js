@@ -24,16 +24,15 @@ async function createSession(userId) {
     delete clients[userId];
   }
 
-  // Resolve Chrome executable path
+  // ALWAYS use puppeteer's own Chrome — guarantees version compatibility
+  // with whatsapp-web.js's bundled puppeteer-core.
+  // System Chromium from apt-get causes "Execution context destroyed" errors.
   let executablePath = '';
-
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-  } else {
-    try {
-      const puppeteer = require('puppeteer');
-      executablePath = puppeteer.executablePath();
-    } catch(e) {}
+  try {
+    const puppeteer = require('puppeteer');
+    executablePath = puppeteer.executablePath();
+  } catch(e) {
+    console.error('[WhatsApp] Could not find puppeteer Chrome:', e.message);
   }
 
   console.log(`[WhatsApp] Using Chrome: ${executablePath || 'default'}`);
