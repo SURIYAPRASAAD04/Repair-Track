@@ -36,14 +36,15 @@ async function createSession(userId) {
 
   const puppeteerOptions = {
     headless: true,
-    protocolTimeout: 120000, // 2 minutes — needed for slow free-tier CPUs
+    protocolTimeout: 180000, // 3 minutes — Render free-tier CPUs are very slow
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
-      '--no-zygote',
+      '--no-zygote',               // critical: avoids forking helper processes
+      '--single-process',           // critical: run everything in one process to save RAM
       '--disable-gpu',
       '--disable-extensions',
       '--disable-background-networking',
@@ -55,8 +56,14 @@ async function createSession(userId) {
       '--disable-prompt-on-repost',
       '--disable-sync',
       '--disable-translate',
+      '--disable-domain-reliability',
+      '--disable-renderer-backgrounding',
+      '--disable-infobars',
+      '--disable-features=TranslateUI',
+      '--disable-ipc-flooding-protection',
       '--metrics-recording-only',
-      '--safebrowsing-disable-auto-update'
+      '--safebrowsing-disable-auto-update',
+      '--js-flags=--max-old-space-size=128'  // limit Chrome JS heap to 128MB
     ]
   };
 

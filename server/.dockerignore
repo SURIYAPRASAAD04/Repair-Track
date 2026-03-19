@@ -1,9 +1,10 @@
 node_modules
-npm-debug.log
-.env
 .wwebjs_auth
-.cache
-dist
-*.md
+.wwebjs_cache
+.env
+.env.*
+npm-debug.log*
 .git
 .gitignore
+Dockerfile
+.dockerignore
