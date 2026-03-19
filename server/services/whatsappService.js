@@ -43,8 +43,7 @@ async function createSession(userId) {
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
-      '--no-zygote',               // critical: avoids forking helper processes
-      '--single-process',           // critical: run everything in one process to save RAM
+      // NOTE: --no-zygote and --single-process removed — they break WebSocket connections to WhatsApp
       '--disable-gpu',
       '--disable-extensions',
       '--disable-background-networking',

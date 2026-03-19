@@ -11,6 +11,8 @@ FROM node:20-slim
 # Install only the bare minimum Chromium + libs (no extras)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   chromium \
+  ca-certificates \
+  dbus \
   libgbm1 \
   libnss3 \
   libatk-bridge2.0-0 \
