@@ -1,4 +1,18 @@
 require('dotenv').config();
+
+// ─── GLOBAL CRASH PREVENTION ───
+// whatsapp-web.js can throw unhandled errors internally (e.g. "Execution context destroyed").
+// Without these handlers, the entire Node.js process dies and Railway restarts it in a crash loop.
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception (process NOT killed):', err.message);
+  // Do NOT call process.exit() — keep the server alive
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Promise Rejection (process NOT killed):', reason?.message || reason);
+  // Do NOT call process.exit() — keep the server alive
+});
+
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');

@@ -18,14 +18,18 @@ async function createSession(userId) {
     return { success: true, message: 'Already initializing' };
   }
 
+  // Clean up any previous failed session
+  if (clients[userId]) {
+    try { await clients[userId].client?.destroy(); } catch(e) {}
+    delete clients[userId];
+  }
+
   // Resolve Chrome executable path
   let executablePath = '';
 
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    // Docker or explicit env config
     executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
   } else {
-    // Full puppeteer auto-downloads Chrome — use its path
     try {
       const puppeteer = require('puppeteer');
       executablePath = puppeteer.executablePath();
@@ -36,14 +40,13 @@ async function createSession(userId) {
 
   const puppeteerOptions = {
     headless: true,
-    protocolTimeout: 300000, // 5 minutes — Railway containers have slow CPUs
+    protocolTimeout: 300000, // 5 minutes
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
-      // NOTE: --no-zygote and --single-process removed — they break WebSocket connections to WhatsApp
       '--disable-gpu',
       '--disable-extensions',
       '--disable-background-networking',
@@ -62,7 +65,7 @@ async function createSession(userId) {
       '--disable-ipc-flooding-protection',
       '--metrics-recording-only',
       '--safebrowsing-disable-auto-update',
-      '--js-flags=--max-old-space-size=128'  // limit Chrome JS heap to 128MB
+      '--js-flags=--max-old-space-size=128'
     ]
   };
 
@@ -70,66 +73,100 @@ async function createSession(userId) {
     puppeteerOptions.executablePath = executablePath;
   }
 
-  const client = new Client({
-    authStrategy: new LocalAuth({ 
-      clientId: userId,
-      dataPath: path.join(__dirname, '../.wwebjs_auth')
-    }),
-    puppeteer: puppeteerOptions
-  });
+  // ─── Initialize with retry logic ───
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 5000; // 5 seconds between retries
 
-  clients[userId] = { client, qr: null, ready: false, authenticating: false, initError: null };
+  const attemptInit = async (attempt = 1) => {
+    console.log(`[WhatsApp] Initialization attempt ${attempt}/${MAX_RETRIES} for user ${userId}`);
 
-  client.on('qr', async (qr) => {
-    try {
-      const qrBase64 = await qrcode.toDataURL(qr);
-      if (clients[userId]) {
-        clients[userId].qr = qrBase64;
+    const client = new Client({
+      authStrategy: new LocalAuth({ 
+        clientId: userId,
+        dataPath: path.join(__dirname, '../.wwebjs_auth')
+      }),
+      puppeteer: puppeteerOptions
+    });
+
+    clients[userId] = { client, qr: null, ready: false, authenticating: false, initError: null };
+
+    client.on('qr', async (qr) => {
+      try {
+        const qrBase64 = await qrcode.toDataURL(qr);
+        if (clients[userId]) {
+          clients[userId].qr = qrBase64;
+        }
+      } catch (err) {
+        console.error('Error generating QR code:', err.message);
       }
+    });
+
+    client.on('ready', async () => {
+      console.log(`[WhatsApp] Client READY for user: ${userId}`);
+      if (clients[userId]) {
+        clients[userId].ready = true;
+        clients[userId].authenticating = false;
+        clients[userId].qr = null;
+        await Shop.findByIdAndUpdate(userId, { whatsappConnected: true }).catch(e => console.error(e));
+      }
+    });
+
+    client.on('authenticated', () => {
+      console.log(`[WhatsApp] Client authenticated for user: ${userId}`);
+      if (clients[userId]) {
+        clients[userId].authenticating = true;
+        clients[userId].qr = null;
+      }
+    });
+
+    client.on('auth_failure', msg => {
+      console.error(`[WhatsApp] Auth failure for user: ${userId}`, msg);
+      if (clients[userId]) clients[userId].authenticating = false;
+    });
+
+    client.on('disconnected', async (reason) => {
+      console.log(`[WhatsApp] Disconnected for user: ${userId}`, reason);
+      if (clients[userId]) {
+        clients[userId].ready = false;
+        await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(e => console.error(e));
+        try { await client.destroy(); } catch(e) {}
+        delete clients[userId];
+      }
+    });
+
+    // Catch any internal errors from the client so they don't crash Node.js
+    client.on('error', (err) => {
+      console.error(`[WhatsApp] Client error for user ${userId}:`, err.message);
+    });
+
+    try {
+      await client.initialize();
+      // If we get here without throwing, initialization succeeded
     } catch (err) {
-      console.error('Error generating QR code:', err);
-    }
-  });
-
-  client.on('ready', async () => {
-    console.log(`WhatsApp client ready for user: ${userId}`);
-    if (clients[userId]) {
-      clients[userId].ready = true;
-      clients[userId].authenticating = false;
-      clients[userId].qr = null;
-      await Shop.findByIdAndUpdate(userId, { whatsappConnected: true });
-    }
-  });
-
-  client.on('authenticated', () => {
-    console.log(`WhatsApp client authenticated for user: ${userId}`);
-    if (clients[userId]) {
-      clients[userId].authenticating = true;
-      clients[userId].qr = null;
-    }
-  });
-
-  client.on('auth_failure', msg => {
-    console.error(`WhatsApp client auth_failure for user: ${userId}`, msg);
-    if (clients[userId]) {
-      clients[userId].authenticating = false;
-    }
-  });
-
-  client.on('disconnected', async (reason) => {
-    console.log(`WhatsApp client disconnected for user: ${userId}`, reason);
-    if (clients[userId]) {
-      clients[userId].ready = false;
-      await Shop.findByIdAndUpdate(userId, { whatsappConnected: false });
+      console.error(`[WhatsApp] Init attempt ${attempt} failed for user ${userId}:`, err.message);
+      
+      // Clean up the failed client
+      try { await client.destroy(); } catch(e) {}
       delete clients[userId];
-    }
-  });
 
-  // NON-BLOCKING: Do NOT await. Return 200 immediately.
-  // Frontend polls /api/whatsapp/qr/:userId to detect QR or ready state.
-  client.initialize().catch((err) => {
-    console.error(`[WhatsApp] Failed to initialize client for user ${userId}:`, err.message);
-    delete clients[userId]; // Clean up so user can retry
+      // Retry if we have attempts left
+      if (attempt < MAX_RETRIES) {
+        console.log(`[WhatsApp] Retrying in ${RETRY_DELAY / 1000}s...`);
+        await new Promise(r => setTimeout(r, RETRY_DELAY));
+        return attemptInit(attempt + 1);
+      } else {
+        console.error(`[WhatsApp] All ${MAX_RETRIES} attempts failed for user ${userId}`);
+        if (clients[userId]) {
+          clients[userId].initError = err.message;
+        }
+      }
+    }
+  };
+
+  // NON-BLOCKING: Run initialization in the background
+  attemptInit().catch(err => {
+    console.error(`[WhatsApp] Fatal init error for user ${userId}:`, err.message);
+    delete clients[userId];
   });
 
   return { success: true, message: 'Session initialization started' };
