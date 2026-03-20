@@ -89,7 +89,7 @@ async function createSession(userId) {
     // Store session
     clients[userId] = {
       sock, qr: null, ready: false, authenticating: false,
-      initError: null, reconnects: 0
+      initError: null, reconnects: 0, pairingPhone: null
     };
 
     // Save creds on update
@@ -140,7 +140,32 @@ async function createSession(userId) {
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const reason = lastDisconnect?.error?.output?.payload?.message || 'unknown';
-        console.log(`[WhatsApp] Disconnected user ${userId}: status=${statusCode}, reason=${reason}`);
+        const pairingPhone = clients[userId]?.pairingPhone;
+        console.log(`[WhatsApp] Disconnected user ${userId}: status=${statusCode}, reason=${reason}, pairingMode=${!!pairingPhone}`);
+
+        // 408 = QR expired. In pairing mode, auto-reconnect and re-request code
+        if (statusCode === 408 && pairingPhone) {
+          console.log(`[WhatsApp] QR expired during pairing, reconnecting for ${userId}...`);
+          try { sock.end(); } catch (e) {}
+          delete clients[userId];
+          setTimeout(async () => {
+            try {
+              await createSession(userId);
+              // Wait for socket to connect, then re-request pairing code
+              await new Promise(r => setTimeout(r, 4000));
+              if (clients[userId]?.sock) {
+                const code = await clients[userId].sock.requestPairingCode(pairingPhone);
+                console.log(`[WhatsApp] Re-generated pairing code: ${code}`);
+                // Store the new code so frontend can poll it
+                clients[userId].pairingCode = code;
+                clients[userId].pairingPhone = pairingPhone;
+              }
+            } catch (e) {
+              console.error(`[WhatsApp] Pairing reconnect failed:`, e.message);
+            }
+          }, 2000);
+          return;
+        }
 
         // Session permanently invalid — require fresh QR
         // NOTE: 515 is NOT here! 515 = restartRequired (normal after QR scan)
@@ -304,25 +329,30 @@ async function disconnectSession(userId) {
 // ── Request Pairing Code (for mobile — no QR scan needed) ───────────────────
 
 async function requestPairingCode(userId, phoneNumber) {
-  // Clean phone number
   let cleanPhone = phoneNumber.replace(/\D/g, '');
   if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
 
   const session = clients[userId];
-  
-  // Need a socket that's created but NOT yet authenticated
-  // If already connected, no pairing needed
   if (session && session.ready) {
     return { alreadyConnected: true };
   }
 
-  // If no session exists, create one first
-  if (!session || !session.sock) {
-    await createSession(userId);
+  // Clean up any existing session and create fresh one for pairing
+  if (session) {
+    try { session.sock?.end(); } catch (e) {}
+    delete clients[userId];
   }
 
-  // Wait a moment for the socket to establish WebSocket connection
-  await new Promise(r => setTimeout(r, 3000));
+  await createSession(userId);
+
+  // Wait for the WebSocket to connect and first QR to be generated
+  // (QR event = socket is ready to accept pairing code)
+  let waited = 0;
+  while (waited < 15000) {
+    if (clients[userId]?.qr || clients[userId]?.ready) break;
+    await new Promise(r => setTimeout(r, 500));
+    waited += 500;
+  }
 
   const current = clients[userId];
   if (!current || !current.sock) {
@@ -333,6 +363,9 @@ async function requestPairingCode(userId, phoneNumber) {
     console.log(`[WhatsApp] Requesting pairing code for ${cleanPhone}`);
     const code = await current.sock.requestPairingCode(cleanPhone);
     console.log(`[WhatsApp] Pairing code generated: ${code}`);
+    // Store pairing state so 408 handler can auto-reconnect
+    current.pairingPhone = cleanPhone;
+    current.pairingCode = code;
     return { success: true, code };
   } catch (err) {
     console.error(`[WhatsApp] Pairing code error:`, err.message);
