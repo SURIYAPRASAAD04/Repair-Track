@@ -301,10 +301,49 @@ async function disconnectSession(userId) {
   return { success: true };
 }
 
+// ── Request Pairing Code (for mobile — no QR scan needed) ───────────────────
+
+async function requestPairingCode(userId, phoneNumber) {
+  // Clean phone number
+  let cleanPhone = phoneNumber.replace(/\D/g, '');
+  if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
+
+  const session = clients[userId];
+  
+  // Need a socket that's created but NOT yet authenticated
+  // If already connected, no pairing needed
+  if (session && session.ready) {
+    return { alreadyConnected: true };
+  }
+
+  // If no session exists, create one first
+  if (!session || !session.sock) {
+    await createSession(userId);
+  }
+
+  // Wait a moment for the socket to establish WebSocket connection
+  await new Promise(r => setTimeout(r, 3000));
+
+  const current = clients[userId];
+  if (!current || !current.sock) {
+    throw new Error('Failed to create WhatsApp session');
+  }
+
+  try {
+    console.log(`[WhatsApp] Requesting pairing code for ${cleanPhone}`);
+    const code = await current.sock.requestPairingCode(cleanPhone);
+    console.log(`[WhatsApp] Pairing code generated: ${code}`);
+    return { success: true, code };
+  } catch (err) {
+    console.error(`[WhatsApp] Pairing code error:`, err.message);
+    throw new Error(`Failed to get pairing code: ${err.message}`);
+  }
+}
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
   for (const id in clients) { try { clients[id].sock?.end(); } catch (e) {} }
   process.exit(0);
 });
 
-module.exports = { createSession, getQR, getStatus, sendMessage, disconnectSession };
+module.exports = { createSession, getQR, getStatus, sendMessage, disconnectSession, requestPairingCode };
