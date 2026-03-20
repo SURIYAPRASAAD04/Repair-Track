@@ -1,31 +1,30 @@
 /**
- * WhatsApp Service — Baileys (WebSocket-based, no Chrome/Puppeteer)
+ * WhatsApp Service — @whiskeysockets/baileys (production-grade)
  * 
- * Uses baileys which connects directly via WebSocket.
- * No headless browser needed = works on any hosting tier.
+ * Uses Baileys WebSocket protocol — NO Chrome/Puppeteer needed.
+ * Fetches latest WhatsApp Web version to prevent 405 errors.
  */
 const qrcode = require('qrcode');
 const path = require('path');
+const fs = require('fs');
 const pino = require('pino');
 const Shop = require('../models/Shop');
 const MessageLog = require('../models/MessageLog');
 const Job = require('../models/Job');
 
-const clients = {};  // { userId: { sock, qr, ready, authenticating, initError } }
-
-// Warn-level logger for debugging (silent hides connection errors)
+const clients = {};   // { userId: { sock, qr, ready, authenticating, initError, reconnects } }
 const logger = pino({ level: 'warn' });
 
-// Baileys is ESM — we need dynamic import
-let baileysMod = null;
-async function getBaileys() {
-  if (!baileysMod) {
-    baileysMod = await import('baileys');
+// Dynamic import — @whiskeysockets/baileys is ESM
+let _baileys = null;
+async function loadBaileys() {
+  if (!_baileys) {
+    _baileys = await import('@whiskeysockets/baileys');
   }
-  return baileysMod;
+  return _baileys;
 }
 
-// ── Per-user message queue ──────────────────────────────────────────────────
+// Per-user message queue
 const sendQueues = {};
 function enqueue(userId, fn) {
   if (!sendQueues[userId]) sendQueues[userId] = Promise.resolve();
@@ -33,139 +32,167 @@ function enqueue(userId, fn) {
   return sendQueues[userId];
 }
 
+// ── Create Session ──────────────────────────────────────────────────────────
+
 async function createSession(userId) {
   const existing = clients[userId];
+  if (existing && existing.ready) return { alreadyConnected: true };
+  if (existing && existing.sock && !existing.initError) return { success: true, message: 'Already initializing' };
 
-  if (existing && existing.ready) {
-    return { alreadyConnected: true };
-  }
-
-  // Already initializing
-  if (existing && existing.sock && !existing.initError) {
-    return { success: true, message: 'Already initializing' };
-  }
-
-  // Clean up any previous broken session
+  // Cleanup broken session
   if (existing) {
     try { existing.sock?.end(); } catch (e) {}
     delete clients[userId];
   }
 
-  // Auth state — stores session in filesystem
-  const authDir = path.join(__dirname, '../.wwebjs_auth', `session-${userId}`);
-  
-  const { default: makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason: DR } = await getBaileys();
-  const { state, saveCreds } = await useMultiFileAuthState(authDir);
+  try {
+    const {
+      default: makeWASocket,
+      useMultiFileAuthState,
+      makeCacheableSignalKeyStore,
+      fetchLatestBaileysVersion,
+      DisconnectReason,
+    } = await loadBaileys();
 
-  console.log(`[WhatsApp] Creating Baileys socket for user ${userId}...`);
-
-  // Create the WebSocket connection
-  const sock = makeWASocket({
-    auth: {
-      creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, logger),
-    },
-    printQRInTerminal: false,
-    logger,
-    browser: ['RepairTrack', 'Chrome', '131.0'],
-    connectTimeoutMs: 60000,
-    defaultQueryTimeoutMs: 30000,
-    markOnlineOnConnect: false,
-  });
-
-  // Store immediately so getQR can poll
-  clients[userId] = { sock, qr: null, ready: false, authenticating: false, initError: null };
-
-  // ── Save credentials whenever they update ─────────────────────────────────
-  sock.ev.on('creds.update', saveCreds);
-
-  // ── Connection events ─────────────────────────────────────────────────────
-  sock.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr } = update;
-
-    // QR code received
-    if (qr) {
-      console.log(`[WhatsApp] QR generated for user ${userId}`);
-      try {
-        clients[userId].qr = await qrcode.toDataURL(qr);
-        clients[userId].authenticating = false;
-        clients[userId].initError = null;
-      } catch (e) {
-        console.error('[WhatsApp] QR encode failed:', e.message);
-      }
+    // Fetch current WhatsApp Web version (prevents 405 "Method Not Allowed")
+    let version;
+    try {
+      const versionInfo = await fetchLatestBaileysVersion();
+      version = versionInfo.version;
+      console.log(`[WhatsApp] Using WA Web version: ${version.join('.')}`);
+    } catch (e) {
+      console.warn('[WhatsApp] Could not fetch WA version, using default:', e.message);
     }
 
-    // Connection opened
-    if (connection === 'open') {
-      console.log(`[WhatsApp] ✅ READY for user ${userId}`);
-      if (clients[userId]) {
-        clients[userId].ready = true;
-        clients[userId].authenticating = false;
-        clients[userId].qr = null;
-        clients[userId].initError = null;
-      }
-      await Shop.findByIdAndUpdate(userId, { whatsappConnected: true }).catch(e =>
-        console.error('[WhatsApp] DB update failed:', e.message)
-      );
-    }
+    // Auth state — unique per user
+    const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+    fs.mkdirSync(authDir, { recursive: true });
+    const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
-    // Connection closed
-    if (connection === 'close') {
-      const statusCode = lastDisconnect?.error?.output?.statusCode;
-      // 401 = loggedOut, 405 = invalid/stale session, 403 = forbidden
-      const isSessionInvalid = [401, 403, 405, 440, 515].includes(statusCode);
-      
-      console.log(`[WhatsApp] Connection closed for user ${userId}, status: ${statusCode}, sessionInvalid: ${isSessionInvalid}`);
+    console.log(`[WhatsApp] Creating socket for user ${userId}`);
 
-      if (isSessionInvalid) {
-        // Session is bad — clear auth files and require fresh QR
-        console.log(`[WhatsApp] Session invalid for ${userId}, clearing auth and requiring new QR scan`);
-        const fs = require('fs');
-        const authDir = path.join(__dirname, '../.wwebjs_auth', `session-${userId}`);
-        try { fs.rmSync(authDir, { recursive: true, force: true }); } catch(e) {}
-        
-        if (clients[userId]) {
-          clients[userId].ready = false;
-          clients[userId].initError = 'Session expired. Please reconnect and scan QR again.';
+    const sock = makeWASocket({
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      version,
+      printQRInTerminal: false,
+      logger,
+      browser: ['RepairTrack', 'Chrome', '131.0.6778.204'],
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 30000,
+      markOnlineOnConnect: false,
+      generateHighQualityLinkPreview: false,
+    });
+
+    // Store session
+    clients[userId] = {
+      sock, qr: null, ready: false, authenticating: false,
+      initError: null, reconnects: 0
+    };
+
+    // Save creds on update
+    sock.ev.on('creds.update', saveCreds);
+
+    // ── Connection events ─────────────────────────────────────────────────
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      // QR code received — send to frontend
+      if (qr) {
+        console.log(`[WhatsApp] QR generated for user ${userId}`);
+        try {
+          if (clients[userId]) {
+            clients[userId].qr = await qrcode.toDataURL(qr);
+            clients[userId].authenticating = false;
+            clients[userId].initError = null;
+          }
+        } catch (e) {
+          console.error('[WhatsApp] QR encode error:', e.message);
         }
-        await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
-        delete clients[userId];
-      } else {
-        // Transient error — reconnect with limit
-        const reconnectCount = (clients[userId]?.reconnectCount || 0) + 1;
-        if (reconnectCount <= 5) {
-          console.log(`[WhatsApp] Reconnecting for user ${userId} (attempt ${reconnectCount}/5)...`);
-          delete clients[userId];
-          setTimeout(() => {
-            createSession(userId).then(result => {
-              if (clients[userId]) clients[userId].reconnectCount = reconnectCount;
-            }).catch(e => 
-              console.error(`[WhatsApp] Reconnect failed for ${userId}:`, e.message)
-            );
-          }, 3000);
-        } else {
-          console.error(`[WhatsApp] Max reconnects reached for ${userId}, giving up`);
+      }
+
+      // Connected successfully
+      if (connection === 'open') {
+        console.log(`[WhatsApp] ✅ CONNECTED for user ${userId}`);
+        if (clients[userId]) {
+          clients[userId].ready = true;
+          clients[userId].authenticating = false;
+          clients[userId].qr = null;
+          clients[userId].initError = null;
+          clients[userId].reconnects = 0;
+        }
+        await Shop.findByIdAndUpdate(userId, { whatsappConnected: true }).catch(e =>
+          console.error('[WhatsApp] DB error:', e.message)
+        );
+      }
+
+      // Connecting
+      if (connection === 'connecting') {
+        console.log(`[WhatsApp] Connecting for user ${userId}...`);
+        if (clients[userId]) {
+          clients[userId].authenticating = true;
+        }
+      }
+
+      // Connection closed
+      if (connection === 'close') {
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const reason = lastDisconnect?.error?.output?.payload?.message || 'unknown';
+        console.log(`[WhatsApp] Disconnected user ${userId}: status=${statusCode}, reason=${reason}`);
+
+        // Session invalid — require fresh QR
+        if ([401, 403, 405, 440, 515].includes(statusCode)) {
+          console.log(`[WhatsApp] Session invalid (${statusCode}), clearing auth for ${userId}`);
+          const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+          try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
+          
           if (clients[userId]) {
             clients[userId].ready = false;
-            clients[userId].initError = 'Connection failed after 5 retries';
+            clients[userId].initError = 'Session expired. Click Connect to scan QR again.';
           }
           await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
+          // Clean up but DON'T delete from clients — let frontend see the error
+          try { sock.end(); } catch (e) {}
+          return;
+        }
+
+        // Transient error — auto-reconnect (max 5 times)
+        const count = (clients[userId]?.reconnects || 0) + 1;
+        if (count <= 5 && statusCode === DisconnectReason.restartRequired) {
+          console.log(`[WhatsApp] Reconnecting ${userId} (${count}/5)...`);
+          try { sock.end(); } catch (e) {}
           delete clients[userId];
+          setTimeout(() => {
+            createSession(userId).then(() => {
+              if (clients[userId]) clients[userId].reconnects = count;
+            }).catch(e => console.error(`[WhatsApp] Reconnect error:`, e.message));
+          }, 3000);
+        } else {
+          console.log(`[WhatsApp] Not reconnecting ${userId} (status=${statusCode}, attempts=${count})`);
+          if (clients[userId]) {
+            clients[userId].ready = false;
+            clients[userId].initError = `Disconnected (${statusCode}). Click Connect to retry.`;
+          }
+          await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
+          try { sock.end(); } catch (e) {}
         }
       }
-    }
+    });
 
-    // Connecting state
-    if (connection === 'connecting') {
-      console.log(`[WhatsApp] Connecting for user ${userId}...`);
-      if (clients[userId]) {
-        clients[userId].authenticating = true;
-      }
-    }
-  });
+    return { success: true, message: 'Session starting. Poll /qr endpoint.' };
 
-  return { success: true, message: 'Session starting. Poll /qr endpoint.' };
+  } catch (err) {
+    console.error(`[WhatsApp] createSession error for ${userId}:`, err);
+    if (clients[userId]) {
+      clients[userId].initError = err.message;
+    }
+    return { success: false, message: err.message };
+  }
 }
+
+// ── Get QR ──────────────────────────────────────────────────────────────────
 
 async function getQR(userId) {
   const session = clients[userId];
@@ -178,18 +205,19 @@ async function getQR(userId) {
   };
 }
 
+// ── Get Status ──────────────────────────────────────────────────────────────
+
 async function getStatus(userId) {
   const session = clients[userId];
   return { connected: !!(session && session.ready) };
 }
 
-// ── sendMessage with queue + retry ──────────────────────────────────────────
+// ── Send Message ────────────────────────────────────────────────────────────
 
 async function sendMessage(userId, phone, message, jobId = null, customerName = null, triggerEvent = 'manual_message') {
   return enqueue(userId, async () => {
     const session = clients[userId];
-
-    if (!session || !session.ready) {
+    if (!session || !session.ready || !session.sock) {
       await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
       throw new Error('WhatsApp not connected');
     }
@@ -198,7 +226,7 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
     const jid = `${cleanPhone}@s.whatsapp.net`;
 
-    // ── Check if number is on WhatsApp ──────────────────────────────
+    // Check if number is on WhatsApp
     try {
       const [result] = await session.sock.onWhatsApp(cleanPhone);
       if (!result?.exists) {
@@ -208,74 +236,65 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
           messageContent: message, triggerEvent, status: 'failed',
           errorReason: 'Number not on WhatsApp'
         }).catch(() => {});
-        throw new Error(`${cleanPhone} is not a WhatsApp number`);
+        throw new Error(`${cleanPhone} is not registered on WhatsApp`);
       }
       console.log(`[WhatsApp] ✅ ${cleanPhone} is on WhatsApp`);
-    } catch (checkErr) {
-      if (checkErr.message.includes('not a WhatsApp')) throw checkErr;
-      console.warn(`[WhatsApp] Number check failed, will try sending:`, checkErr.message);
+    } catch (err) {
+      if (err.message.includes('not registered')) throw err;
+      console.warn(`[WhatsApp] Number check failed:`, err.message);
     }
 
-    // ── Send with retries ───────────────────────────────────────────
+    // Send with retries
     const MAX_RETRIES = 3;
     let lastError = null;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        if (!clients[userId] || !clients[userId].ready) {
-          throw new Error('WhatsApp disconnected during send');
-        }
+        if (!clients[userId]?.ready) throw new Error('WhatsApp disconnected');
 
-        console.log(`[WhatsApp] Sending to ${jid} (attempt ${attempt}/${MAX_RETRIES})`);
-
-        const result = await session.sock.sendMessage(jid, { text: message });
-
-        console.log(`[WhatsApp] ✅ Message sent to ${cleanPhone} on attempt ${attempt}`);
+        console.log(`[WhatsApp] Sending to ${cleanPhone} (attempt ${attempt}/${MAX_RETRIES})`);
+        await clients[userId].sock.sendMessage(jid, { text: message });
+        console.log(`[WhatsApp] ✅ Sent to ${cleanPhone} on attempt ${attempt}`);
 
         // Log success
         MessageLog.create({
           shopId: userId, jobId, customerPhone: cleanPhone, customerName,
           messageContent: message, triggerEvent, status: 'sent'
-        }).catch(e => console.error('[WhatsApp] MessageLog error:', e.message));
+        }).catch(e => console.error('[WhatsApp] Log error:', e.message));
 
         if (jobId) {
           Job.findByIdAndUpdate(jobId, {
             lastMessageSent: new Date(), $inc: { messagesSentCount: 1 }
-          }).catch(e => console.error('[WhatsApp] Job metric error:', e.message));
+          }).catch(e => console.error('[WhatsApp] Job update error:', e.message));
         }
 
         return { success: true };
-
       } catch (err) {
         lastError = err;
         console.error(`[WhatsApp] Send attempt ${attempt} failed:`, err.message);
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, 3000));
-        }
+        if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 3000));
       }
     }
 
-    // All attempts failed
-    console.error(`[WhatsApp] ❌ All ${MAX_RETRIES} sends failed for ${cleanPhone}`);
-
+    console.error(`[WhatsApp] ❌ All sends failed for ${cleanPhone}`);
     MessageLog.create({
       shopId: userId, jobId, customerPhone: cleanPhone, customerName,
       messageContent: message, triggerEvent, status: 'failed',
       errorReason: lastError?.message || 'Unknown'
-    }).catch(e => console.error('[WhatsApp] MessageLog error:', e.message));
+    }).catch(() => {});
 
-    throw new Error(`WhatsApp failed to send: ${lastError?.message}`);
+    throw new Error(`Failed to send: ${lastError?.message}`);
   });
 }
 
+// ── Disconnect ──────────────────────────────────────────────────────────────
+
 async function disconnectSession(userId) {
   if (clients[userId]) {
-    try {
-      await clients[userId].sock.logout();
-    } catch (e) {}
-    try {
-      clients[userId].sock.end();
-    } catch (e) {}
+    try { await clients[userId].sock?.logout(); } catch (e) {}
+    try { clients[userId].sock?.end(); } catch (e) {}
+    const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+    try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
     delete clients[userId];
   }
   await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
@@ -283,12 +302,9 @@ async function disconnectSession(userId) {
 }
 
 // Graceful shutdown
-async function cleanup() {
-  for (const userId in clients) {
-    try { clients[userId].sock?.end(); } catch (e) {}
-  }
-}
-process.on('SIGINT', async () => { await cleanup(); process.exit(0); });
-process.once('SIGUSR2', async () => { await cleanup(); process.kill(process.pid, 'SIGUSR2'); });
+process.on('SIGINT', async () => {
+  for (const id in clients) { try { clients[id].sock?.end(); } catch (e) {} }
+  process.exit(0);
+});
 
 module.exports = { createSession, getQR, getStatus, sendMessage, disconnectSession };
