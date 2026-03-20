@@ -138,11 +138,11 @@ export default function NewJobModal({ onClose, onSubmit }) {
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold text-text-muted mb-2">WhatsApp Number *</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted font-medium text-sm">+</span>
-                    <input type="tel" required className="input-field pl-8 bg-surface-bg placeholder-text-muted/50" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="919876543210" />
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-2.5 bg-surface-elevated border border-surface-border rounded-xl text-sm font-medium text-text-muted shrink-0">+91</span>
+                    <input type="tel" required className="input-field bg-surface-bg placeholder-text-muted/50 flex-1" value={customerPhone} onChange={e => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="98XXXXXXXX" maxLength={10} />
                   </div>
-                  <p className="text-[10px] text-text-muted mt-1.5 ml-1">Include country code. Used for notifications.</p>
+                  <p className="text-[10px] text-text-muted mt-1.5 ml-1">10-digit mobile number. Used for WhatsApp notifications.</p>
                 </div>
               </div>
             </div>
