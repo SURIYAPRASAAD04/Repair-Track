@@ -8,7 +8,13 @@ import PairingCodeModal from '../components/PairingCodeModal';
 import WhatsAppLogo from '../components/WhatsAppLogo';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
+
+  // Helper: sync WhatsApp status to both local state AND AuthContext
+  const updateWhatsAppStatus = (connected) => {
+    setWaStatus({ connected });
+    setUser(prev => ({ ...prev, whatsappConnected: connected }));
+  };
   const [stats, setStats] = useState({
     activeJobs: 0,
     completedToday: 0,
@@ -55,7 +61,7 @@ export default function Dashboard() {
           setPolling(false);
           setQrSuccess(true);
           setIsAuthenticating(false);
-          setWaStatus({ connected: true });
+          updateWhatsAppStatus(true);
           toast.success('WhatsApp Connected successfully!');
           setTimeout(() => {
              setShowQR(false);
@@ -85,7 +91,7 @@ export default function Dashboard() {
       ]);
       
       setStats(statsRes.data);
-      setWaStatus({ connected: statusRes.data.connected });
+      updateWhatsAppStatus(statusRes.data.connected);
     } catch (error) {
       toast.error('Failed to load dashboard data');
     }
@@ -134,7 +140,7 @@ export default function Dashboard() {
     try {
       setIsDisconnecting(true);
       await api.post('/api/whatsapp/disconnect');
-      setWaStatus({ connected: false });
+      updateWhatsAppStatus(false);
       toast.success('WhatsApp Disconnected');
     } catch (error) {
       toast.error('Failed to disconnect');
@@ -258,7 +264,7 @@ export default function Dashboard() {
           userId={user._id}
           onClose={() => setShowPairing(false)}
           onConnected={() => {
-            setWaStatus({ connected: true });
+            updateWhatsAppStatus(true);
             toast.success('WhatsApp Connected successfully!');
             setTimeout(() => setShowPairing(false), 1500);
           }}
