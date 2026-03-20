@@ -142,8 +142,9 @@ async function createSession(userId) {
         const reason = lastDisconnect?.error?.output?.payload?.message || 'unknown';
         console.log(`[WhatsApp] Disconnected user ${userId}: status=${statusCode}, reason=${reason}`);
 
-        // Session invalid — require fresh QR
-        if ([401, 403, 405, 440, 515].includes(statusCode)) {
+        // Session permanently invalid — require fresh QR
+        // NOTE: 515 is NOT here! 515 = restartRequired (normal after QR scan)
+        if ([401, 403, 405, 440].includes(statusCode)) {
           console.log(`[WhatsApp] Session invalid (${statusCode}), clearing auth for ${userId}`);
           const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
           try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
@@ -153,27 +154,26 @@ async function createSession(userId) {
             clients[userId].initError = 'Session expired. Click Connect to scan QR again.';
           }
           await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
-          // Clean up but DON'T delete from clients — let frontend see the error
           try { sock.end(); } catch (e) {}
           return;
         }
 
-        // Transient error — auto-reconnect (max 5 times)
+        // Auto-reconnect on transient errors (515 = restartRequired after QR scan)
         const count = (clients[userId]?.reconnects || 0) + 1;
-        if (count <= 5 && statusCode === DisconnectReason.restartRequired) {
-          console.log(`[WhatsApp] Reconnecting ${userId} (${count}/5)...`);
+        if (count <= 5) {
+          console.log(`[WhatsApp] Auto-reconnecting ${userId} (${count}/5, status=${statusCode})...`);
           try { sock.end(); } catch (e) {}
           delete clients[userId];
           setTimeout(() => {
             createSession(userId).then(() => {
               if (clients[userId]) clients[userId].reconnects = count;
             }).catch(e => console.error(`[WhatsApp] Reconnect error:`, e.message));
-          }, 3000);
+          }, 2000);
         } else {
-          console.log(`[WhatsApp] Not reconnecting ${userId} (status=${statusCode}, attempts=${count})`);
+          console.log(`[WhatsApp] Max reconnects reached for ${userId}`);
           if (clients[userId]) {
             clients[userId].ready = false;
-            clients[userId].initError = `Disconnected (${statusCode}). Click Connect to retry.`;
+            clients[userId].initError = 'Connection failed. Click Connect to retry.';
           }
           await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
           try { sock.end(); } catch (e) {}
