@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, CheckCircle2, Smartphone, Loader2, AlertCircle } from 'lucide-react';
 import WhatsAppLogo from './WhatsAppLogo';
 import api from '../api/axios';
@@ -44,17 +44,13 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
           setStep('success');
           onConnected?.();
         }
-        // Update pairing code if backend regenerated it on reconnect
         if (res.data.pairingCode && res.data.pairingCode !== pairingCode) {
           setPairingCode(res.data.pairingCode);
         }
       } catch (e) { /* keep polling */ }
     }, 2500);
 
-    // Stop after 3 minutes
     setTimeout(() => clearInterval(interval), 180000);
-
-    // Cleanup on unmount
     return () => clearInterval(interval);
   };
 
@@ -89,7 +85,7 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
               <div className="flex items-center gap-3 p-3 bg-accent-green/5 border border-accent-green/20 rounded-xl">
                 <Smartphone className="w-5 h-5 text-accent-green shrink-0" />
                 <p className="text-xs text-text-muted leading-relaxed">
-                  Enter your WhatsApp number to get a <strong>pairing code</strong>. No QR scan needed!
+                  Enter your WhatsApp number to get a <strong className="text-text-primary">pairing code</strong>. No QR scan needed!
                 </p>
               </div>
 
@@ -104,7 +100,7 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     placeholder="98XXXXXXXX"
-                    className="flex-1 px-4 py-2.5 bg-surface-bg border border-surface-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent-green/50 focus:border-accent-green placeholder:text-text-muted/50"
+                    className="flex-1 px-4 py-2.5 bg-surface-bg border border-surface-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-green/50 focus:border-accent-green placeholder:text-text-muted/50"
                     maxLength={10}
                     autoFocus
                   />
@@ -146,33 +142,33 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
               </div>
 
               <div className="space-y-2 text-sm text-text-muted bg-surface-bg rounded-xl p-4 border border-surface-border">
-                <p><strong>1.</strong> Open <strong>WhatsApp</strong> on this phone</p>
-                <p><strong>2.</strong> Go to <strong>Settings → Linked Devices</strong></p>
-                <p><strong>3.</strong> Tap <strong>Link a Device</strong></p>
-                <p><strong>4.</strong> Tap <strong>"Link with phone number instead"</strong></p>
-                <p><strong>5.</strong> Enter the code shown above</p>
+                <p><strong className="text-text-primary">1.</strong> Open <strong className="text-text-primary">WhatsApp</strong> on this phone</p>
+                <p><strong className="text-text-primary">2.</strong> Go to <strong className="text-text-primary">Settings → Linked Devices</strong></p>
+                <p><strong className="text-text-primary">3.</strong> Tap <strong className="text-text-primary">Link a Device</strong></p>
+                <p><strong className="text-text-primary">4.</strong> Tap <strong className="text-text-primary">"Link with phone number instead"</strong></p>
+                <p><strong className="text-text-primary">5.</strong> Enter the code shown above</p>
               </div>
             </div>
           )}
 
           {step === 'success' && (
             <div className="flex flex-col items-center py-8 gap-3 animate-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 bg-accent-green/10 rounded-full flex items-center justify-center">
                 <CheckCircle2 className="w-10 h-10 text-accent-green" />
               </div>
-              <p className="text-lg font-bold text-gray-800">Connected!</p>
-              <p className="text-sm text-gray-500 text-center">WhatsApp is now linked. Status updates will be sent automatically.</p>
+              <p className="text-lg font-bold text-text-primary">Connected!</p>
+              <p className="text-sm text-text-muted text-center">WhatsApp is now linked. Status updates will be sent automatically.</p>
             </div>
           )}
 
           {step === 'error' && (
             <div className="flex flex-col items-center py-8 gap-4">
-              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-                <AlertCircle className="w-10 h-10 text-red-400" />
+              <div className="w-16 h-16 bg-accent-red/10 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-10 h-10 text-accent-red" />
               </div>
               <div className="text-center">
-                <p className="font-bold text-gray-800">Something went wrong</p>
-                <p className="text-sm text-gray-500 mt-1">{errorMsg}</p>
+                <p className="font-bold text-text-primary">Something went wrong</p>
+                <p className="text-sm text-text-muted mt-1">{errorMsg}</p>
               </div>
               <button
                 onClick={() => { setStep('phone'); setErrorMsg(''); }}

@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [qrError, setQrError] = useState(false);
   const [showPairing, setShowPairing] = useState(false);
   const [showMethodPicker, setShowMethodPicker] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -131,11 +132,14 @@ export default function Dashboard() {
 
   const handleDisconnectWhatsApp = async () => {
     try {
+      setIsDisconnecting(true);
       await api.post('/api/whatsapp/disconnect');
       setWaStatus({ connected: false });
       toast.success('WhatsApp Disconnected');
     } catch (error) {
       toast.error('Failed to disconnect');
+    } finally {
+      setIsDisconnecting(false);
     }
   };
 
@@ -224,8 +228,8 @@ export default function Dashboard() {
            
            <div className="shrink-0 w-full sm:w-auto">
              {waStatus.connected ? (
-                 <button onClick={handleDisconnectWhatsApp} className="btn-secondary w-full text-text-muted hover:text-accent-red hover:border-accent-red/50 hover:bg-accent-red/5">
-                   Disconnect Device
+                 <button onClick={handleDisconnectWhatsApp} disabled={isDisconnecting} className="btn-secondary w-full text-text-muted hover:text-accent-red hover:border-accent-red/50 hover:bg-accent-red/5 disabled:opacity-60 disabled:cursor-not-allowed">
+                   {isDisconnecting ? 'Disconnecting...' : 'Disconnect Device'}
                  </button>
              ) : (
                  <button onClick={handleConnectWhatsApp} disabled={isConnecting} className="btn-primary w-full bg-accent-green hover:bg-[#20bd5c]">
