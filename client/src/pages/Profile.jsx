@@ -81,16 +81,14 @@ export default function Profile() {
         <div className="h-20 sm:h-24 bg-gradient-to-r from-accent-primary/20 via-accent-blue/20 to-accent-green/20 relative">
           <div className="absolute inset-0 bg-surface-card/30 backdrop-blur-sm"></div>
         </div>
-        <div className="px-5 sm:px-6 pb-6 -mt-10 sm:-mt-12 relative">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-accent-primary to-accent-blue rounded-2xl flex items-center justify-center text-white text-2xl sm:text-3xl font-bold border-4 border-surface-card shadow-lg">
-            {user?.ownerName?.charAt(0)?.toUpperCase() || user?.shopName?.charAt(0)?.toUpperCase() || 'U'}
+        <div className="flex flex-col items-center pb-6 -mt-10 sm:-mt-12 relative">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-surface-elevated border-2 border-surface-border rounded-2xl flex items-center justify-center shadow-lg">
+            <User className="w-10 h-10 sm:w-12 sm:h-12 text-text-muted" />
           </div>
-          <div className="mt-4">
-            <h2 className="text-xl sm:text-2xl font-bold text-text-primary">{user?.ownerName || 'Shop Owner'}</h2>
-            <p className="text-text-muted text-sm flex items-center gap-1.5 mt-1">
-              <Store className="w-3.5 h-3.5" /> {user?.shopName || 'My Shop'}
-            </p>
-          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-text-primary mt-4 text-center">{user?.ownerName || 'Shop Owner'}</h2>
+          <p className="text-text-muted text-sm flex items-center gap-1.5 mt-1">
+            <Store className="w-3.5 h-3.5" /> {user?.shopName || 'My Shop'}
+          </p>
         </div>
       </div>
 
