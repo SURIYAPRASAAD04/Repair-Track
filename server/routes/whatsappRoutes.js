@@ -3,8 +3,7 @@ const {
   connect,
   getQR,
   getStatus,
-  disconnect,
-  requestPairingCode
+  disconnect
 } = require('../controllers/whatsappController');
 const authMiddleware = require('../middleware/authMiddleware');
 const subscriptionMiddleware = require('../middleware/subscriptionMiddleware');
@@ -17,6 +16,5 @@ router.post('/connect', connect);
 router.get('/qr/:userId', getQR);
 router.get('/status/:userId', getStatus);
 router.post('/disconnect', disconnect);
-router.post('/pairing-code', requestPairingCode);
 
 module.exports = router;

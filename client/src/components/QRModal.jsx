@@ -64,6 +64,9 @@ export default function QRModal({ qrCode, onClose, isSuccess, isAuthenticating, 
             <p><strong>1.</strong> Open WhatsApp on your phone</p>
             <p><strong>2.</strong> Tap Menu (⋮) or Settings and select <strong>Linked Devices</strong></p>
             <p><strong>3.</strong> Tap <strong>Link a Device</strong> and scan this code</p>
+            <p className="sm:hidden pt-2 text-xs text-accent-green border-t border-surface-border mt-3">
+              💡 <strong>Tip:</strong> Open this page on a laptop or ask someone nearby to scan for you.
+            </p>
           </div>
         )}
       </div>

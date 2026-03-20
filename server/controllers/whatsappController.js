@@ -47,18 +47,4 @@ const disconnect = async (req, res) => {
   }
 };
 
-const requestPairingCode = async (req, res) => {
-  try {
-    const { phoneNumber } = req.body;
-    if (!phoneNumber) {
-      return res.status(400).json({ error: 'Phone number is required' });
-    }
-    const result = await whatsappService.requestPairingCode(req.user.id, phoneNumber);
-    res.status(200).json(result);
-  } catch (error) {
-    console.error('Pairing code endpoint error:', error);
-    res.status(500).json({ error: 'Failed to generate pairing code', details: error.message });
-  }
-};
-
-module.exports = { connect, getQR, getStatus, disconnect, requestPairingCode };
+module.exports = { connect, getQR, getStatus, disconnect };
