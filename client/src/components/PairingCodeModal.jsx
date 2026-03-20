@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, CheckCircle2, Smartphone, Loader2, AlertCircle } from 'lucide-react';
 import WhatsAppLogo from './WhatsAppLogo';
 import api from '../api/axios';
@@ -8,7 +8,6 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pairingCode, setPairingCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [polling, setPolling] = useState(false);
 
   const handleRequestCode = async () => {
     if (phoneNumber.replace(/\D/g, '').length < 10) {
@@ -31,38 +30,39 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
       setStep('code');
       startPolling();
     } catch (err) {
-      setErrorMsg(err.response?.data?.details || 'Failed to generate pairing code');
+      setErrorMsg(err.response?.data?.details || 'Failed to generate pairing code. Try again.');
       setStep('error');
     }
   };
 
   const startPolling = () => {
-    setPolling(true);
     const interval = setInterval(async () => {
       try {
         const res = await api.get(`/api/whatsapp/qr/${userId}`);
         if (res.data.ready) {
           clearInterval(interval);
-          setPolling(false);
           setStep('success');
           onConnected?.();
         }
+        // Update pairing code if backend regenerated it on reconnect
+        if (res.data.pairingCode && res.data.pairingCode !== pairingCode) {
+          setPairingCode(res.data.pairingCode);
+        }
       } catch (e) { /* keep polling */ }
-    }, 2000);
+    }, 2500);
 
-    // Auto-stop after 2 minutes
-    setTimeout(() => {
-      clearInterval(interval);
-      setPolling(false);
-    }, 120000);
+    // Stop after 3 minutes
+    setTimeout(() => clearInterval(interval), 180000);
+
+    // Cleanup on unmount
+    return () => clearInterval(interval);
   };
 
   const formatCode = (code) => {
-    // Format as "XXXX-XXXX" — code is alphanumeric (letters + numbers)
     if (!code) return '';
     const c = code.replace(/[\s-]/g, '').toUpperCase();
     if (c.length <= 4) return c;
-    return c.slice(0, 4) + '-' + c.slice(4, 8);
+    return c.slice(0, 4) + ' - ' + c.slice(4, 8);
   };
 
   return (
@@ -126,7 +126,7 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
             <div className="flex flex-col items-center py-8 gap-4">
               <Loader2 className="w-10 h-10 text-accent-green animate-spin" />
               <p className="text-sm text-text-muted font-medium">Generating pairing code...</p>
-              <p className="text-xs text-text-muted/60">This may take a few seconds</p>
+              <p className="text-xs text-text-muted/60">This may take 10-15 seconds</p>
             </div>
           )}
 
@@ -134,21 +134,19 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
             <div className="space-y-5">
               <div className="text-center">
                 <p className="text-sm text-text-muted mb-4">Enter this code in WhatsApp:</p>
-                <div className="inline-block px-8 py-4 bg-surface-elevated border-2 border-accent-green/30 rounded-2xl">
-                  <span className="text-3xl sm:text-4xl font-mono font-bold tracking-[0.3em] text-text-primary">
+                <div className="inline-block px-6 sm:px-8 py-4 bg-surface-elevated border-2 border-accent-green/30 rounded-2xl">
+                  <span className="text-2xl sm:text-3xl font-mono font-bold tracking-[0.2em] text-text-primary">
                     {formatCode(pairingCode)}
                   </span>
                 </div>
-                {polling && (
-                  <div className="flex items-center justify-center gap-2 mt-4 text-xs text-accent-green">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Waiting for connection...
-                  </div>
-                )}
+                <div className="flex items-center justify-center gap-2 mt-4 text-xs text-accent-green">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Waiting for you to enter the code...
+                </div>
               </div>
 
-              <div className="space-y-2.5 text-sm text-text-muted bg-surface-bg rounded-xl p-4 border border-surface-border">
-                <p><strong>1.</strong> Open <strong>WhatsApp</strong> on your phone</p>
+              <div className="space-y-2 text-sm text-text-muted bg-surface-bg rounded-xl p-4 border border-surface-border">
+                <p><strong>1.</strong> Open <strong>WhatsApp</strong> on this phone</p>
                 <p><strong>2.</strong> Go to <strong>Settings → Linked Devices</strong></p>
                 <p><strong>3.</strong> Tap <strong>Link a Device</strong></p>
                 <p><strong>4.</strong> Tap <strong>"Link with phone number instead"</strong></p>
@@ -163,7 +161,7 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
                 <CheckCircle2 className="w-10 h-10 text-accent-green" />
               </div>
               <p className="text-lg font-bold text-gray-800">Connected!</p>
-              <p className="text-sm text-gray-500 text-center">WhatsApp is now linked. Auto-updates will be sent to your customers.</p>
+              <p className="text-sm text-gray-500 text-center">WhatsApp is now linked. Status updates will be sent automatically.</p>
             </div>
           )}
 

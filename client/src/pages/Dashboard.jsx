@@ -4,6 +4,7 @@ import api from '../api/axios';
 import { toast } from 'react-hot-toast';
 import { Smartphone, Wrench, IndianRupee, BellRing, CheckCircle2, XCircle } from 'lucide-react';
 import QRModal from '../components/QRModal';
+import PairingCodeModal from '../components/PairingCodeModal';
 import WhatsAppLogo from '../components/WhatsAppLogo';
 
 export default function Dashboard() {
@@ -23,6 +24,10 @@ export default function Dashboard() {
   const [qrSuccess, setQrSuccess] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [qrError, setQrError] = useState(false);
+  const [showPairing, setShowPairing] = useState(false);
+  const [showMethodPicker, setShowMethodPicker] = useState(false);
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   useEffect(() => {
     fetchDashboardData();
@@ -32,7 +37,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (!polling) return;
 
-    // Timeout: if no QR appears within 90 seconds, show error
     const timeout = setTimeout(() => {
       if (!qrCode && !qrSuccess && !isAuthenticating) {
         setPolling(false);
@@ -52,7 +56,6 @@ export default function Dashboard() {
           setIsAuthenticating(false);
           setWaStatus({ connected: true });
           toast.success('WhatsApp Connected successfully!');
-          // Auto close modal after 1.5 seconds of seeing the success state
           setTimeout(() => {
              setShowQR(false);
              setQrSuccess(false);
@@ -88,8 +91,17 @@ export default function Dashboard() {
   };
 
   const handleConnectWhatsApp = async () => {
+    if (isMobile) {
+      setShowMethodPicker(true);
+      return;
+    }
+    await startQRFlow();
+  };
+
+  const startQRFlow = async () => {
     try {
       setIsConnecting(true);
+      setShowMethodPicker(false);
       setQrSuccess(false);
       setIsAuthenticating(false);
       setQrError(false);
@@ -224,6 +236,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* QR Modal (desktop) */}
       {showQR && (
         <QRModal 
           qrCode={qrCode} 
@@ -233,6 +246,69 @@ export default function Dashboard() {
           onRetry={handleRetryConnect}
           onClose={() => { setShowQR(false); setPolling(false); setQrError(false); }} 
         />
+      )}
+
+      {/* Pairing Code Modal (mobile) */}
+      {showPairing && (
+        <PairingCodeModal
+          userId={user._id}
+          onClose={() => setShowPairing(false)}
+          onConnected={() => {
+            setWaStatus({ connected: true });
+            toast.success('WhatsApp Connected successfully!');
+            setTimeout(() => setShowPairing(false), 1500);
+          }}
+        />
+      )}
+
+      {/* Mobile method picker bottom sheet */}
+      {showMethodPicker && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end justify-center z-[100] animate-in fade-in duration-200">
+          <div className="bg-surface-card border-t border-surface-border rounded-t-2xl w-full overflow-hidden animate-in slide-in-from-bottom duration-300">
+            <div className="flex items-center justify-between p-4 border-b border-surface-border bg-surface-elevated">
+              <h3 className="font-semibold text-base flex items-center gap-2">
+                <WhatsAppLogo className="w-5 h-5 text-accent-green" />
+                Link WhatsApp
+              </h3>
+              <button onClick={() => setShowMethodPicker(false)} className="text-text-muted hover:text-text-primary p-1.5 rounded-lg">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-text-muted mb-1">Choose how to link your WhatsApp:</p>
+              
+              {/* Pairing Code - recommended for mobile */}
+              <button
+                onClick={() => { setShowMethodPicker(false); setShowPairing(true); }}
+                className="w-full flex items-center gap-4 p-4 bg-accent-green/5 border-2 border-accent-green/30 rounded-xl hover:bg-accent-green/10 transition-colors text-left"
+              >
+                <div className="w-10 h-10 bg-accent-green/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Smartphone className="w-5 h-5 text-accent-green" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Use Phone Number</p>
+                  <p className="text-xs text-text-muted mt-0.5">Enter a code in WhatsApp — no second device</p>
+                </div>
+                <span className="text-[10px] bg-accent-green/20 text-accent-green px-2 py-0.5 rounded-full font-medium whitespace-nowrap">Best for mobile</span>
+              </button>
+
+              {/* QR Code */}
+              <button
+                onClick={() => startQRFlow()}
+                className="w-full flex items-center gap-4 p-4 bg-surface-bg border border-surface-border rounded-xl hover:bg-surface-elevated transition-colors text-left"
+              >
+                <div className="w-10 h-10 bg-surface-elevated rounded-xl flex items-center justify-center shrink-0 border border-surface-border">
+                  <CheckCircle2 className="w-5 h-5 text-text-muted" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Scan QR Code</p>
+                  <p className="text-xs text-text-muted mt-0.5">Use another device to scan</p>
+                </div>
+              </button>
+            </div>
+            <div className="h-6" />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -17,8 +17,8 @@ const getQR = async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized to view this QR code' });
     }
 
-    const { qr, ready, authenticating } = await whatsappService.getQR(req.user.id);
-    res.status(200).json({ qr, ready, authenticating });
+    const { qr, ready, authenticating, pairingCode } = await whatsappService.getQR(req.user.id);
+    res.status(200).json({ qr, ready, authenticating, pairingCode });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch QR status' });
   }
@@ -47,4 +47,18 @@ const disconnect = async (req, res) => {
   }
 };
 
-module.exports = { connect, getQR, getStatus, disconnect };
+const requestPairingCode = async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
+    const result = await whatsappService.requestPairingCode(req.user.id, phoneNumber);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Pairing code endpoint error:', error.message);
+    res.status(500).json({ error: 'Failed to generate pairing code', details: error.message });
+  }
+};
+
+module.exports = { connect, getQR, getStatus, disconnect, requestPairingCode };
