@@ -56,6 +56,13 @@ async function createSession(userId) {
       clientId: userId,
       dataPath: path.join(__dirname, '../.wwebjs_auth')
     }),
+    // REQUIRED: Pin WA Web version to prevent "Execution context destroyed"
+    // Without this, whatsapp-web.js navigates the page to fetch the WA bundle,
+    // which destroys the Puppeteer execution context.
+    webVersionCache: {
+      type: 'remote',
+      remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1033805553-alpha.html`,
+    },
     puppeteer: {
       headless: true,
       executablePath,
