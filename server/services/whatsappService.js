@@ -59,9 +59,6 @@ async function createSession(userId) {
     '--metrics-recording-only',
     '--safebrowsing-disable-auto-update',
     '--mute-audio',
-    '--single-process',           // critical for low-memory containers
-    '--no-zygote',                // reduces memory footprint
-    '--disable-software-rasterizer',
   ];
 
   const client = new Client({
