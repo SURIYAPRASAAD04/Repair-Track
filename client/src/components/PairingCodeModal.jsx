@@ -58,11 +58,11 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
   };
 
   const formatCode = (code) => {
-    // Format as "XXXX-XXXX" for readability
+    // Format as "XXXX-XXXX" — code is alphanumeric (letters + numbers)
     if (!code) return '';
-    const c = code.replace(/\D/g, '');
+    const c = code.replace(/[\s-]/g, '').toUpperCase();
     if (c.length <= 4) return c;
-    return c.slice(0, 4) + '-' + c.slice(4);
+    return c.slice(0, 4) + '-' + c.slice(4, 8);
   };
 
   return (
