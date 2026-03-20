@@ -56,12 +56,12 @@ async function createSession(userId) {
       clientId: userId,
       dataPath: path.join(__dirname, '../.wwebjs_auth')
     }),
-    // ── webVersionCache: prevents page navigation during script injection ──────
-    // Without this, whatsapp-web.js fetches the WA Web bundle via a page navigation
-    // which destroys the Puppeteer execution context → "Execution context was destroyed"
+    // ── webVersionCache: pin to a known-working WhatsApp Web version ──────
+    // Prevents whatsapp-web.js from navigating the page to fetch the bundle,
+    // which causes "Execution context was destroyed" on slow containers.
     webVersionCache: {
       type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+      remotePath: 'https://raw.githubusercontent.com/AzzouzGroup/wa-version/main/html/2.3000.1033805553-alpha.html',
     },
     puppeteer: {
       headless: true,
