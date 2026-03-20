@@ -1,10 +1,9 @@
 /**
  * WhatsApp Service — Baileys (WebSocket-based, no Chrome/Puppeteer)
  * 
- * Uses @whiskeysockets/baileys which connects directly via WebSocket.
+ * Uses baileys which connects directly via WebSocket.
  * No headless browser needed = works on any hosting tier.
  */
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore } = require('baileys');
 const qrcode = require('qrcode');
 const path = require('path');
 const pino = require('pino');
@@ -14,8 +13,17 @@ const Job = require('../models/Job');
 
 const clients = {};  // { userId: { sock, qr, ready, authenticating, initError } }
 
-// Silent logger for Baileys (it's very verbose by default)
-const logger = pino({ level: 'silent' });
+// Warn-level logger for debugging (silent hides connection errors)
+const logger = pino({ level: 'warn' });
+
+// Baileys is ESM — we need dynamic import
+let baileysMod = null;
+async function getBaileys() {
+  if (!baileysMod) {
+    baileysMod = await import('baileys');
+  }
+  return baileysMod;
+}
 
 // ── Per-user message queue ──────────────────────────────────────────────────
 const sendQueues = {};
@@ -45,7 +53,11 @@ async function createSession(userId) {
 
   // Auth state — stores session in filesystem
   const authDir = path.join(__dirname, '../.wwebjs_auth', `session-${userId}`);
+  
+  const { default: makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, DisconnectReason: DR } = await getBaileys();
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
+
+  console.log(`[WhatsApp] Creating Baileys socket for user ${userId}...`);
 
   // Create the WebSocket connection
   const sock = makeWASocket({
@@ -58,7 +70,6 @@ async function createSession(userId) {
     browser: ['RepairTrack', 'Chrome', '131.0'],
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 30000,
-    retryRequestDelayMs: 2000,
     markOnlineOnConnect: false,
   });
 
@@ -102,7 +113,7 @@ async function createSession(userId) {
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       // 401 = loggedOut, 405 = invalid/stale session, 403 = forbidden
-      const isSessionInvalid = [401, 403, 405, DisconnectReason.loggedOut].includes(statusCode);
+      const isSessionInvalid = [401, 403, 405, 440, 515].includes(statusCode);
       
       console.log(`[WhatsApp] Connection closed for user ${userId}, status: ${statusCode}, sessionInvalid: ${isSessionInvalid}`);
 
