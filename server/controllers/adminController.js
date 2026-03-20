@@ -20,13 +20,12 @@ const loginAdmin = async (req, res) => {
       return res.status(401).json({ error: 'Invalid admin credentials' });
     }
 
-    // Sign a token with admin payload
     const token = jwt.sign(
-      { 
+      {
         isAdmin: true,
-        role: 'superadmin' 
-      }, 
-      process.env.JWT_SECRET, 
+        role: 'superadmin'
+      },
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
@@ -72,7 +71,7 @@ const createShop = async (req, res) => {
     // Create subscription based on trialDays provided
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + parseInt(trialDays));
-    
+
     const subscription = await Subscription.create({
       shopId: newShop._id,
       plan: 'trial',
@@ -108,7 +107,7 @@ const getAllShops = async (req, res) => {
     const shops = await Shop.find()
       .select('-password')
       .populate('subscription');
-      
+
     res.status(200).json(shops);
   } catch (error) {
     console.error('Admin Get Shops Error:', error);
@@ -143,7 +142,7 @@ const getShopById = async (req, res) => {
 const toggleShopStatus = async (req, res) => {
   try {
     const { isActive } = req.body;
-    
+
     const shop = await Shop.findByIdAndUpdate(
       req.params.id,
       { isActive: typeof isActive === 'boolean' ? isActive : false },
@@ -170,7 +169,7 @@ const toggleShopStatus = async (req, res) => {
 const extendSubscription = async (req, res) => {
   try {
     const { daysToAdd, newPlan } = req.body;
-    
+
     if (!daysToAdd) {
       return res.status(400).json({ error: 'Please specify days to add' });
     }
@@ -181,30 +180,30 @@ const extendSubscription = async (req, res) => {
     }
 
     let subscription = await Subscription.findOne({ shopId: shop._id });
-    
+
     if (!subscription) {
-       // Create one if it didn't exist for some reason
-       subscription = await Subscription.create({
-         shopId: shop._id,
-         plan: newPlan || 'trial',
-         status: 'active',
-         startDate: new Date(),
-         endDate: new Date()
-       });
-       shop.subscription = subscription._id;
-       await shop.save();
+      // Create one if it didn't exist for some reason
+      subscription = await Subscription.create({
+        shopId: shop._id,
+        plan: newPlan || 'trial',
+        status: 'active',
+        startDate: new Date(),
+        endDate: new Date()
+      });
+      shop.subscription = subscription._id;
+      await shop.save();
     }
 
-    const currentEndDate = new Date(subscription.endDate) > new Date() 
-      ? new Date(subscription.endDate) 
+    const currentEndDate = new Date(subscription.endDate) > new Date()
+      ? new Date(subscription.endDate)
       : new Date();
-      
+
     currentEndDate.setDate(currentEndDate.getDate() + parseInt(daysToAdd));
 
     subscription.endDate = currentEndDate;
     subscription.status = 'active';
     if (newPlan) subscription.plan = newPlan;
-    
+
     await subscription.save();
 
     res.status(200).json({
@@ -224,7 +223,7 @@ const getAdminMetrics = async (req, res) => {
   try {
     const totalShops = await Shop.countDocuments();
     const activeShops = await Shop.countDocuments({ isActive: true });
-    
+
     // Aggregate subscriptions by plan
     const planDistribution = await Subscription.aggregate([
       { $group: { _id: '$plan', count: { $sum: 1 } } }
