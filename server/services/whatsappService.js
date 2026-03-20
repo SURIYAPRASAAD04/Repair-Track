@@ -80,9 +80,8 @@ async function createSession(userId, pairingPhone = null) {
       version,
       printQRInTerminal: false,
       logger,
-      browser: ['RepairTrack', 'Chrome', '131.0.6778.204'],
       connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 30000,
+      defaultQueryTimeoutMs: 60000,
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
     });
