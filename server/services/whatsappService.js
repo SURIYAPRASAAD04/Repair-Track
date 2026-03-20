@@ -288,6 +288,16 @@ async function requestPairingCode(userId, phoneNumber) {
   throw new Error('Timed out waiting for pairing code');
 }
 
+// ── Banner Image for WhatsApp messages ──────────────────────────────────────
+const BANNER_PATH = path.join(__dirname, '..', 'assets', 'banner.png');
+let bannerBuffer = null;
+try {
+  bannerBuffer = fs.readFileSync(BANNER_PATH);
+  console.log('[WhatsApp] ✅ Banner image loaded from', BANNER_PATH);
+} catch (e) {
+  console.warn('[WhatsApp] ⚠️ Banner image not found at', BANNER_PATH, '— will send text-only messages');
+}
+
 // ── Send Message ────────────────────────────────────────────────────────────
 
 async function sendMessage(userId, phone, message, jobId = null, customerName = null, triggerEvent = 'manual_message') {
@@ -329,7 +339,18 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
         if (!clients[userId]?.ready) throw new Error('WhatsApp disconnected');
 
         console.log(`[WhatsApp] Sending to ${cleanPhone} (attempt ${attempt}/${MAX_RETRIES})`);
-        await clients[userId].sock.sendMessage(jid, { text: message });
+        
+        // Send as image + caption if banner exists, otherwise text-only
+        if (bannerBuffer) {
+          await clients[userId].sock.sendMessage(jid, {
+            image: bannerBuffer,
+            caption: message,
+            mimetype: 'image/png',
+          });
+        } else {
+          await clients[userId].sock.sendMessage(jid, { text: message });
+        }
+        
         console.log(`[WhatsApp] ✅ Sent to ${cleanPhone} on attempt ${attempt}`);
 
         MessageLog.create({
