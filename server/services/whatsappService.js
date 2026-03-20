@@ -106,19 +106,24 @@ async function createSession(userId, pairingPhone = null) {
         const session = clients[userId];
         if (!session) return;
 
-        // PAIRING MODE: call requestPairingCode inside QR event
-        // This is the official Baileys pattern from example.ts
+        // PAIRING MODE: call requestPairingCode ONLY ONCE on first QR event
+        // Each call invalidates the previous code, so we must NOT re-request
         if (session.pairingPhone && !sock.authState.creds.registered) {
-          try {
-            console.log(`[WhatsApp] Requesting pairing code for ${session.pairingPhone}...`);
-            const code = await sock.requestPairingCode(session.pairingPhone);
-            console.log(`[WhatsApp] ✅ Pairing code generated: ${code}`);
-            session.pairingCode = code;
-            session.authenticating = false;
-            session.initError = null;
-          } catch (e) {
-            console.error('[WhatsApp] Pairing code request failed:', e.message);
-            session.initError = 'Failed to generate pairing code. Try again.';
+          if (!session.pairingCodeSent) {
+            try {
+              console.log(`[WhatsApp] Requesting pairing code for ${session.pairingPhone}...`);
+              const code = await sock.requestPairingCode(session.pairingPhone);
+              console.log(`[WhatsApp] ✅ Pairing code generated: ${code}`);
+              session.pairingCode = code;
+              session.pairingCodeSent = true; // Don't request again
+              session.authenticating = false;
+              session.initError = null;
+            } catch (e) {
+              console.error('[WhatsApp] Pairing code request failed:', e.message);
+              session.initError = 'Failed to generate pairing code. Try again.';
+            }
+          } else {
+            console.log(`[WhatsApp] Ignoring QR event (pairing code already sent)`);
           }
           return; // Don't store QR when in pairing mode
         }
