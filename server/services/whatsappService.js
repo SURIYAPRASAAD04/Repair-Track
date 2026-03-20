@@ -101,29 +101,46 @@ async function createSession(userId) {
     // Connection closed
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      // 401 = loggedOut, 405 = invalid/stale session, 403 = forbidden
+      const isSessionInvalid = [401, 403, 405, DisconnectReason.loggedOut].includes(statusCode);
       
-      console.log(`[WhatsApp] Connection closed for user ${userId}, status: ${statusCode}, reconnect: ${shouldReconnect}`);
+      console.log(`[WhatsApp] Connection closed for user ${userId}, status: ${statusCode}, sessionInvalid: ${isSessionInvalid}`);
 
-      if (shouldReconnect) {
-        // Baileys auto-reconnects are handled by recreating the socket
-        console.log(`[WhatsApp] Reconnecting for user ${userId}...`);
-        delete clients[userId];
-        // Small delay before reconnecting
-        setTimeout(() => {
-          createSession(userId).catch(e => 
-            console.error(`[WhatsApp] Reconnect failed for ${userId}:`, e.message)
-          );
-        }, 3000);
-      } else {
-        // User logged out — clear session
-        console.log(`[WhatsApp] User ${userId} logged out, clearing session`);
+      if (isSessionInvalid) {
+        // Session is bad — clear auth files and require fresh QR
+        console.log(`[WhatsApp] Session invalid for ${userId}, clearing auth and requiring new QR scan`);
+        const fs = require('fs');
+        const authDir = path.join(__dirname, '../.wwebjs_auth', `session-${userId}`);
+        try { fs.rmSync(authDir, { recursive: true, force: true }); } catch(e) {}
+        
         if (clients[userId]) {
           clients[userId].ready = false;
-          clients[userId].initError = 'logged_out';
+          clients[userId].initError = 'Session expired. Please reconnect and scan QR again.';
         }
         await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
         delete clients[userId];
+      } else {
+        // Transient error — reconnect with limit
+        const reconnectCount = (clients[userId]?.reconnectCount || 0) + 1;
+        if (reconnectCount <= 5) {
+          console.log(`[WhatsApp] Reconnecting for user ${userId} (attempt ${reconnectCount}/5)...`);
+          delete clients[userId];
+          setTimeout(() => {
+            createSession(userId).then(result => {
+              if (clients[userId]) clients[userId].reconnectCount = reconnectCount;
+            }).catch(e => 
+              console.error(`[WhatsApp] Reconnect failed for ${userId}:`, e.message)
+            );
+          }, 3000);
+        } else {
+          console.error(`[WhatsApp] Max reconnects reached for ${userId}, giving up`);
+          if (clients[userId]) {
+            clients[userId].ready = false;
+            clients[userId].initError = 'Connection failed after 5 retries';
+          }
+          await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
+          delete clients[userId];
+        }
       }
     }
 
