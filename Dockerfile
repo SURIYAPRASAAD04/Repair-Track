@@ -1,20 +1,20 @@
-# ─── Stage 1: Build + Download compatible Chrome ───
+# ─── Stage 1: Build + Download Chrome ───
 FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Set puppeteer cache to a known location so we can copy it later
-ENV PUPPETEER_CACHE_DIR=/app/.puppeteer-cache
-
 COPY server/package*.json ./
 
-# Install dependencies — puppeteer will auto-download its own compatible Chrome
+# Set puppeteer cache path — MUST match .puppeteerrc.cjs
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
+
+# Install deps — puppeteer postinstall will download its own compatible Chrome
 RUN npm install --omit=dev
 
 # ─── Stage 2: Production ───
 FROM node:20-slim
 
-# Install ALL system libs Chrome 127 needs to run (NOT chromium itself)
+# Install system libs Chrome needs (NOT chromium itself)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   dbus \
@@ -39,20 +39,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   fonts-liberation \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Do NOT set PUPPETEER_EXECUTABLE_PATH — let puppeteer use its own Chrome
-# Do NOT set PUPPETEER_SKIP_CHROMIUM_DOWNLOAD — we want puppeteer's Chrome
-ENV PUPPETEER_CACHE_DIR=/app/.puppeteer-cache
+# Cache path MUST match .puppeteerrc.cjs in server/
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 ENV NODE_OPTIONS="--max-old-space-size=512"
 
 WORKDIR /app
 
-# Copy node_modules from builder (includes whatsapp-web.js)
 COPY --from=builder /app/node_modules ./node_modules
+# Copy puppeteer's downloaded Chrome (path matches PUPPETEER_CACHE_DIR above)
+COPY --from=builder /app/.cache ./.cache
 
-# Copy puppeteer's downloaded Chrome from builder
-COPY --from=builder /app/.puppeteer-cache ./.puppeteer-cache
-
-# Copy server code
 COPY server/ .
 
 EXPOSE 5001
