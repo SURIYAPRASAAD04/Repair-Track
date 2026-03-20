@@ -67,18 +67,14 @@ async function createSession(userId) {
       dataPath: path.join(__dirname, '../.wwebjs_auth')
     }),
     // REQUIRED: Pin WA Web version to prevent "Execution context destroyed"
-    // Without this, whatsapp-web.js navigates the page to fetch the WA bundle,
-    // which destroys the Puppeteer execution context.
     webVersionCache: {
       type: 'remote',
-      remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1033805553-alpha.html`,
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1032180192-alpha.html',
     },
     puppeteer: {
       headless: true,
       executablePath,
       args: puppeteerArgs,
-      protocolTimeout: 300000, // 5 min CDP protocol timeout (critical for slow containers)
-      timeout: 120000,         // 2 min browser launch timeout
     }
   });
 
