@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/axios';
-import { LogOut, LayoutDashboard, Users, ClipboardList, Moon, Sun, AlertCircle } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, ClipboardList, Moon, Sun, AlertCircle, UserCircle } from 'lucide-react';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -52,13 +52,7 @@ export default function Sidebar() {
         <NavLink to="/dashboard" icon={LayoutDashboard} label="Home" />
         <NavLink to="/jobs" icon={ClipboardList} label="Jobs" />
         <NavLink to="/customers" icon={Users} label="Clients" />
-        <button
-          onClick={toggleTheme}
-          className="flex flex-col items-center justify-center gap-1 p-3 text-text-muted hover:text-accent-primary rounded-xl transition-all min-h-[44px] min-w-[44px]"
-        >
-          {theme === 'dark' ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
-          <span className="text-[10px] mt-1 font-medium">Theme</span>
-        </button>
+        <NavLink to="/profile" icon={UserCircle} label="Profile" />
       </nav>
 
       {/* Login Reminder Banner for Unconnected WhatsApp (Mobile Only, floats above Nav) */}
@@ -94,7 +88,7 @@ export default function Sidebar() {
         {/* Footer Settings & Logout */}
         <div className="flex flex-col gap-3 p-3 lg:p-4 border-t border-surface-border w-full bg-surface-base/30">
           
-          {/* Desktop Subscription Plan Badge (Moved from top to sidebar bottom per user request) */}
+          {/* Desktop Subscription Plan Badge */}
           {subscription && (
             <div className="hidden lg:flex items-center justify-between p-3 bg-surface-elevated border border-surface-border rounded-xl">
                <div>
@@ -121,16 +115,28 @@ export default function Sidebar() {
           </button>
           
           <div className="flex items-center justify-center lg:justify-between w-full mt-1 pt-3 border-t border-surface-border">
-            <div className="hidden lg:block pr-2 overflow-hidden">
-               <p className="text-text-primary font-semibold text-sm truncate">{user.shopName}</p>
-               <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${user.whatsappConnected ? 'bg-accent-green' : 'bg-accent-red'}`}></span>
-                  <p className="text-text-muted text-xs truncate">{user.whatsappConnected ? 'Connected' : 'Scanner Offline'}</p>
+            {/* Profile Link (desktop sidebar footer) */}
+            <Link to="/profile" className="hidden lg:flex items-center gap-3 pr-2 overflow-hidden group hover:opacity-80 transition-opacity">
+               <div className="w-8 h-8 bg-gradient-to-br from-accent-primary to-accent-blue rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0">
+                 {user.ownerName?.charAt(0)?.toUpperCase() || user.shopName?.charAt(0)?.toUpperCase() || 'U'}
                </div>
-            </div>
+               <div className="overflow-hidden">
+                  <p className="text-text-primary font-semibold text-sm truncate">{user.shopName}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                     <span className={`w-1.5 h-1.5 rounded-full ${user.whatsappConnected ? 'bg-accent-green' : 'bg-accent-red'}`}></span>
+                     <p className="text-text-muted text-xs truncate">{user.whatsappConnected ? 'Connected' : 'Scanner Offline'}</p>
+                  </div>
+               </div>
+            </Link>
+            {/* Tablet collapsed: show profile avatar */}
+            <Link to="/profile" className="lg:hidden flex items-center justify-center w-full">
+               <div className="w-9 h-9 bg-gradient-to-br from-accent-primary to-accent-blue rounded-lg flex items-center justify-center text-white text-sm font-bold">
+                 {user.ownerName?.charAt(0)?.toUpperCase() || user.shopName?.charAt(0)?.toUpperCase() || 'U'}
+               </div>
+            </Link>
             <button
               onClick={handleLogout}
-              className="p-3 w-full lg:w-auto flex justify-center text-text-muted hover:text-accent-red hover:bg-accent-red/10 rounded-xl transition-colors shrink-0 min-h-[44px] min-w-[44px]"
+              className="hidden lg:flex p-3 text-text-muted hover:text-accent-red hover:bg-accent-red/10 rounded-xl transition-colors shrink-0 min-h-[44px] min-w-[44px] items-center justify-center"
               title="Logout"
             >
               <LogOut className="w-5 h-5" />

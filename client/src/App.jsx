@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import Jobs from './pages/Jobs';
+import Profile from './pages/Profile';
 import SubscriptionExpired from './pages/SubscriptionExpired';
 
 function AppContent() {
@@ -46,6 +47,7 @@ function AppContent() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/jobs" element={<Jobs />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/subscription-expired" element={<SubscriptionExpired />} />
             </Route>
 
