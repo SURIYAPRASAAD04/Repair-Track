@@ -7,6 +7,15 @@ const Job = require('../models/Job');
 
 const clients = {};  // { userId: { client, qr, ready, authenticating } }
 
+// ── Per-user message queue to prevent concurrent page.evaluate() deadlocks ──
+const sendQueues = {};
+function enqueue(userId, fn) {
+  if (!sendQueues[userId]) sendQueues[userId] = Promise.resolve();
+  const p = sendQueues[userId].then(fn).catch(fn);
+  sendQueues[userId] = p;
+  return p;
+}
+
 async function createSession(userId) {
   const existing = clients[userId];
 
@@ -25,7 +34,7 @@ async function createSession(userId) {
     delete clients[userId];
   }
 
-  // Resolve Chrome — use puppeteer's own bundled Chrome for version compatibility
+  // Resolve Chrome — use puppeteer's own bundled Chrome
   let executablePath = undefined;
   try {
     const puppeteer = require('puppeteer');
@@ -35,6 +44,7 @@ async function createSession(userId) {
     console.error('[WhatsApp] puppeteer.executablePath() failed:', e.message);
   }
 
+  // Aggressive memory-saving args for low-resource containers (Railway, Render)
   const puppeteerArgs = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -49,6 +59,9 @@ async function createSession(userId) {
     '--metrics-recording-only',
     '--safebrowsing-disable-auto-update',
     '--mute-audio',
+    '--single-process',           // critical for low-memory containers
+    '--no-zygote',                // reduces memory footprint
+    '--disable-software-rasterizer',
   ];
 
   const client = new Client({
@@ -67,6 +80,8 @@ async function createSession(userId) {
       headless: true,
       executablePath,
       args: puppeteerArgs,
+      protocolTimeout: 300000, // 5 min CDP protocol timeout (critical for slow containers)
+      timeout: 120000,         // 2 min browser launch timeout
     }
   });
 
@@ -129,9 +144,7 @@ async function createSession(userId) {
     console.error(`[WhatsApp] Client error for user ${userId}:`, err?.message || err);
   });
 
-  // ── Start initialization (non-blocking — never await this) ───────────────────
-  // client.initialize() resolves after Chrome launches, NOT after WhatsApp is ready.
-  // We handle readiness purely via the 'ready' event above.
+  // ── Start initialization (non-blocking — never await this) ───────────────
   client.initialize().catch((err) => {
     console.error(`[WhatsApp] initialize() error for user ${userId}:`, err.message);
     if (clients[userId]) {
@@ -158,19 +171,9 @@ async function getStatus(userId) {
   return { connected: !!(session && session.ready) };
 }
 
-// ── Per-user message queue to prevent concurrent page.evaluate() deadlocks ──
-const sendQueues = {}; // { userId: Promise }
-
-function enqueue(userId, fn) {
-  if (!sendQueues[userId]) sendQueues[userId] = Promise.resolve();
-  sendQueues[userId] = sendQueues[userId].then(fn, fn);
-  return sendQueues[userId];
-}
-
-// ── sendMessage with queue + timeout + retry ────────────────────────────────
+// ── sendMessage with queue + number validation + timeout + retry ─────────────
 
 async function sendMessage(userId, phone, message, jobId = null, customerName = null, triggerEvent = 'manual_message') {
-  // Wrap the entire send in a queue so only one message sends at a time
   return enqueue(userId, async () => {
     const session = clients[userId];
 
@@ -183,29 +186,52 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
     const chatId = `${cleanPhone}@c.us`;
 
+    // ── Step 1: Validate number is on WhatsApp ──────────────────────
+    try {
+      console.log(`[WhatsApp] Checking if ${chatId} is registered...`);
+      const isRegistered = await Promise.race([
+        clients[userId].client.isRegisteredUser(chatId),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Number check timed out')), 30000)
+        )
+      ]);
+      console.log(`[WhatsApp] ${chatId} registered: ${isRegistered}`);
+      if (!isRegistered) {
+        console.error(`[WhatsApp] ❌ ${chatId} is NOT on WhatsApp, skipping send`);
+        MessageLog.create({
+          shopId: userId, jobId, customerPhone: cleanPhone, customerName,
+          messageContent: message, triggerEvent, status: 'failed',
+          errorReason: 'Number not on WhatsApp'
+        }).catch(() => {});
+        throw new Error(`${cleanPhone} is not a WhatsApp number`);
+      }
+    } catch (checkErr) {
+      if (checkErr.message.includes('not a WhatsApp')) throw checkErr;
+      // If the check itself fails, log but still try to send
+      console.warn(`[WhatsApp] Number check failed (will try sending anyway):`, checkErr.message);
+    }
+
+    // ── Step 2: Send with retries ───────────────────────────────────
     const MAX_RETRIES = 3;
-    const SEND_TIMEOUT = 90000; // 90s per attempt (slow containers need more time)
+    const SEND_TIMEOUT = 120000; // 2 minutes per attempt
     let lastError = null;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        // Brief wait for WhatsApp Web to stabilize
-        await new Promise(r => setTimeout(r, 2000));
-
         if (!clients[userId] || !clients[userId].ready) {
           throw new Error('WhatsApp disconnected during send');
         }
 
         console.log(`[WhatsApp] Sending to ${chatId} (attempt ${attempt}/${MAX_RETRIES})`);
 
-        await Promise.race([
+        const result = await Promise.race([
           clients[userId].client.sendMessage(chatId, message),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error(`Timed out after ${SEND_TIMEOUT / 1000}s`)), SEND_TIMEOUT)
           )
         ]);
 
-        console.log(`[WhatsApp] ✅ Sent to ${chatId} on attempt ${attempt}`);
+        console.log(`[WhatsApp] ✅ Message sent to ${chatId} on attempt ${attempt}`, result?.id?._serialized || '');
 
         // Log success
         MessageLog.create({
