@@ -3,7 +3,6 @@
  * 
  * Uses Baileys WebSocket protocol. No Chrome/Puppeteer needed.
  * Supports QR code (desktop) and Pairing Code (mobile).
- * Auth state stored in MongoDB to survive container restarts.
  * Based on official Baileys example: https://github.com/WhiskeySockets/Baileys
  */
 const qrcode = require('qrcode');
@@ -13,7 +12,6 @@ const pino = require('pino');
 const Shop = require('../models/Shop');
 const MessageLog = require('../models/MessageLog');
 const Job = require('../models/Job');
-const { useMongoDBAuthState, clearMongoDBAuthState, hasMongoDBAuthState } = require('../utils/mongoAuthState');
 
 const clients = {};
 const logger = pino({ level: 'warn' });
@@ -51,6 +49,7 @@ async function createSession(userId, pairingPhone = null) {
   try {
     const {
       default: makeWASocket,
+      useMultiFileAuthState,
       makeCacheableSignalKeyStore,
       fetchLatestBaileysVersion,
       DisconnectReason,
@@ -66,9 +65,10 @@ async function createSession(userId, pairingPhone = null) {
       console.warn('[WhatsApp] Could not fetch WA version, using default');
     }
 
-    // Auth state per user — stored in MongoDB (survives container restarts)
-    const sessionId = `session-${userId}`;
-    const { state, saveCreds } = await useMongoDBAuthState(sessionId);
+    // Auth state per user
+    const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+    fs.mkdirSync(authDir, { recursive: true });
+    const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
     console.log(`[WhatsApp] Creating socket for user ${userId} (pairing=${!!pairingPhone})`);
 
@@ -148,7 +148,17 @@ async function createSession(userId, pairingPhone = null) {
           clients[userId].qr = null;
           clients[userId].pairingCode = null;
           clients[userId].initError = null;
-          clients[userId].reconnects = 0;
+          // Only reset reconnect counter after connection is stable (30s)
+          // This prevents 440 conflict loops from resetting the counter
+          const currentReconnects = clients[userId].reconnects || 0;
+          if (currentReconnects > 0) {
+            clients[userId]._stableTimer = setTimeout(() => {
+              if (clients[userId]?.ready) {
+                console.log(`[WhatsApp] Connection stable for ${userId}, resetting reconnect counter`);
+                clients[userId].reconnects = 0;
+              }
+            }, 30000);
+          }
         }
         await Shop.findByIdAndUpdate(userId, { whatsappConnected: true }).catch(e =>
           console.error('[WhatsApp] DB error:', e.message)
@@ -170,13 +180,18 @@ async function createSession(userId, pairingPhone = null) {
         const savedPairingPhone = clients[userId]?.pairingPhone;
         console.log(`[WhatsApp] Disconnected user ${userId}: status=${statusCode}, reason=${reason}`);
 
+        // Clear stable timer if it exists
+        if (clients[userId]?._stableTimer) {
+          clearTimeout(clients[userId]._stableTimer);
+        }
+
         try { sock.end(); } catch (e) {}
 
-        // loggedOut = 401 with reason "Stream Errored" or explicit logout
-        // Per official example: reconnect on everything EXCEPT loggedOut
+        // loggedOut (401) — clear auth and stop
         if (statusCode === DisconnectReason.loggedOut) {
           console.log(`[WhatsApp] User ${userId} logged out, clearing auth`);
-          await clearMongoDBAuthState(`session-${userId}`);
+          const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+          try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
           if (clients[userId]) {
             clients[userId].ready = false;
             clients[userId].initError = 'Logged out. Click Connect to scan again.';
@@ -185,10 +200,24 @@ async function createSession(userId, pairingPhone = null) {
           return;
         }
 
-        // 405 = stale session (old whatsapp-web.js auth etc.)
+        // 440 = conflict (another session active) — clear auth and stop
+        if (statusCode === 440) {
+          console.log(`[WhatsApp] ⚠️ Conflict (440) for ${userId} — another session active. Clearing auth.`);
+          const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+          try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
+          if (clients[userId]) {
+            clients[userId].ready = false;
+          }
+          delete clients[userId];
+          await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
+          return; // STOP — do not reconnect
+        }
+
+        // 405 = stale session
         if (statusCode === 405) {
           console.log(`[WhatsApp] Stale session for ${userId}, clearing auth`);
-          await clearMongoDBAuthState(`session-${userId}`);
+          const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+          try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
         }
 
         // Auto-reconnect (max 5 times)
@@ -385,44 +414,15 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
 
 async function disconnectSession(userId) {
   if (clients[userId]) {
+    if (clients[userId]._stableTimer) clearTimeout(clients[userId]._stableTimer);
     try { await clients[userId].sock?.logout(); } catch (e) {}
     try { clients[userId].sock?.end(); } catch (e) {}
-    await clearMongoDBAuthState(`session-${userId}`);
+    const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+    try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
     delete clients[userId];
   }
   await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
   return { success: true };
-}
-
-// ── Auto-Restore Sessions on Server Startup ─────────────────────────────────
-async function restoreAllSessions() {
-  try {
-    // Find all shops that were connected before restart
-    const shops = await Shop.find({ whatsappConnected: true, isActive: true }).lean();
-    if (!shops.length) {
-      console.log('[WhatsApp] No sessions to restore');
-      return;
-    }
-    console.log(`[WhatsApp] Restoring ${shops.length} session(s)...`);
-
-    for (const shop of shops) {
-      const sessionId = `session-${shop._id}`;
-      const hasAuth = await hasMongoDBAuthState(sessionId);
-      if (hasAuth) {
-        console.log(`[WhatsApp] Restoring session for ${shop.shopName} (${shop._id})`);
-        createSession(shop._id.toString()).catch(e => {
-          console.error(`[WhatsApp] Failed to restore ${shop._id}:`, e.message);
-        });
-        // Stagger restores to avoid overwhelming WhatsApp
-        await new Promise(r => setTimeout(r, 3000));
-      } else {
-        console.log(`[WhatsApp] No auth found for ${shop.shopName}, marking disconnected`);
-        await Shop.findByIdAndUpdate(shop._id, { whatsappConnected: false }).catch(() => {});
-      }
-    }
-  } catch (e) {
-    console.error('[WhatsApp] restoreAllSessions error:', e.message);
-  }
 }
 
 // Graceful shutdown
@@ -431,4 +431,4 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-module.exports = { createSession, getQR, getStatus, sendMessage, disconnectSession, requestPairingCode, restoreAllSessions };
+module.exports = { createSession, getQR, getStatus, sendMessage, disconnectSession, requestPairingCode };

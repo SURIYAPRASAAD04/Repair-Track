@@ -55,14 +55,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  
-  // Auto-restore WhatsApp sessions after DB is connected
-  setTimeout(async () => {
-    try {
-      const { restoreAllSessions } = require('./services/whatsappService');
-      await restoreAllSessions();
-    } catch (e) {
-      console.error('[WhatsApp] Auto-restore failed:', e.message);
-    }
-  }, 5000); // Wait 5s for DB connection to settle
 });
