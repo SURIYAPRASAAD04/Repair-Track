@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -12,6 +12,7 @@ import Customers from './pages/Customers';
 import Jobs from './pages/Jobs';
 import Profile from './pages/Profile';
 import SubscriptionExpired from './pages/SubscriptionExpired';
+import LandingPage from './pages/LandingPage';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -25,6 +26,7 @@ function AppContent() {
   }
 
   const isExpiredPage = window.location.pathname === '/subscription-expired';
+  const isLandingPage = window.location.pathname === '/' && !user;
 
   return (
     <Router>
@@ -38,23 +40,29 @@ function AppContent() {
         
         {user && !isExpiredPage && <Sidebar />}
 
-        <main className={`flex-1 min-h-screen transition-all duration-300 ${user && !isExpiredPage ? 'pb-24 pt-4 md:py-8 md:pl-20 lg:pl-64' : 'py-8'}`}>
-          <div className="container mx-auto px-4 md:px-8 xl:max-w-7xl">
+        {isLandingPage ? (
           <Routes>
-            <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
-            
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/subscription-expired" element={<SubscriptionExpired />} />
-            </Route>
-
-            <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
+            <Route path="/" element={<LandingPage />} />
           </Routes>
-          </div>
-        </main>
+        ) : (
+          <main className={`flex-1 min-h-screen transition-all duration-300 ${user && !isExpiredPage ? 'pb-24 pt-4 md:py-8 md:pl-20 lg:pl-64' : 'py-8'}`}>
+            <div className="container mx-auto px-4 md:px-8 xl:max-w-7xl">
+            <Routes>
+              <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
+              
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/customers" element={<Customers />} />
+                <Route path="/jobs" element={<Jobs />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/subscription-expired" element={<SubscriptionExpired />} />
+              </Route>
+
+              <Route path="/" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
+            </Routes>
+            </div>
+          </main>
+        )}
       </div>
     </Router>
   );
