@@ -513,12 +513,6 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-
-
-
-          <p className="text-center text-xs mt-6 flex items-center justify-center gap-1.5" style={{ color: '#6B7C93' }}>
-            <Lightbulb className="w-3.5 h-3.5 shrink-0" style={{ color: '#FFB020' }} /> New customers: Setup Cost + Minimum 3 Months (Quarterly). Example (Starter): ₹499 + ₹549 = <strong className="text-white">₹1,048</strong> first payment.
-          </p>
         </div>
       </section>
 
