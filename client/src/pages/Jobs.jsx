@@ -31,16 +31,6 @@ export default function Jobs() {
     }
   };
 
-  // Fetch full job data when opening the detail modal
-  const openJobDetail = async (job) => {
-    try {
-      const res = await api.get(`/api/jobs/${job._id}`);
-      setSelectedJob(res.data);
-    } catch (error) {
-      toast.error('Failed to load job details');
-    }
-  };
-
   const handleCreateJob = async (jobData) => {
     try {
       const res = await api.post('/api/jobs', jobData);
@@ -162,7 +152,7 @@ export default function Jobs() {
               <div 
                 key={job._id}  
                 className="bg-surface-elevated border border-surface-border rounded-2xl p-4 flex flex-col gap-3 active:scale-[0.98] transition-all relative overflow-hidden shadow-sm"
-                onClick={() => openJobDetail(job)}
+                onClick={() => setSelectedJob(job)}
               >
                 <div className="absolute top-0 left-0 w-1 h-full bg-accent-primary"></div>
                 <div className="flex justify-between items-start">
@@ -206,7 +196,7 @@ export default function Jobs() {
                   <tr 
                     key={job._id} 
                     className="hover:bg-surface-elevated/50 transition-colors cursor-pointer group"
-                    onClick={() => openJobDetail(job)}
+                    onClick={() => setSelectedJob(job)}
                   >
                     <td className="px-6 py-4 hidden xl:table-cell">
                       <span className="font-semibold font-mono text-sm text-text-primary group-hover:text-accent-primary transition-colors">{job.jobId}</span>
