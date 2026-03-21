@@ -118,21 +118,23 @@ export default function LandingPage() {
 
       {/* ═══ HERO ═══ */}
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-        {/* Animated background effects */}
+        {/* Layered animated background */}
         <div className="landing-hero-orb-1"></div>
         <div className="landing-hero-orb-2"></div>
         <div className="landing-hero-orb-3"></div>
         <div className="landing-hero-grid"></div>
         <div className="landing-hero-beam"></div>
+        <div className="landing-hero-beam landing-hero-beam-2"></div>
         <div className="landing-hero-particles">
           {Array.from({ length: 20 }).map((_, i) => <div key={i} className="landing-particle" />)}
         </div>
-        {/* Diagonal gradient stripe */}
         <div className="landing-hero-stripe"></div>
+        {/* Hex pattern overlay */}
+        <div className="landing-hero-hex"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 relative z-10">
           <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
-            {/* Left */}
+            {/* Left — Copy */}
             <div ref={useReveal()} className="landing-fade-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-6 landing-badge-glow" style={{ background: 'rgba(38,198,102,0.1)', color: '#26C666', border: '1px solid rgba(38,198,102,0.25)' }}>
                 <Sparkles className="w-4 h-4" />
@@ -173,16 +175,35 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Right — Image with creative background */}
+            {/* Right — Image Showcase */}
             <div ref={useReveal(200)} className="landing-fade-right">
-              <div className="relative">
-                {/* Glow rings behind image */}
+              <div className="landing-hero-showcase">
+                {/* Multi–layer glow behind image */}
+                <div className="landing-showcase-glow-1"></div>
+                <div className="landing-showcase-glow-2"></div>
+
+                {/* Concentric rings */}
                 <div className="landing-hero-ring landing-hero-ring-1"></div>
                 <div className="landing-hero-ring landing-hero-ring-2"></div>
                 <div className="landing-hero-ring landing-hero-ring-3"></div>
-                <div className="landing-mockup-glow"></div>
 
-                {/* The actual mockup image */}
+                {/* Orbiting icons */}
+                <div className="landing-orbit">
+                  <div className="landing-orbit-icon landing-orbit-icon-1">
+                    <MessageSquare className="w-4 h-4" style={{ color: '#26C666' }} />
+                  </div>
+                  <div className="landing-orbit-icon landing-orbit-icon-2">
+                    <Shield className="w-4 h-4" style={{ color: '#3b82f6' }} />
+                  </div>
+                  <div className="landing-orbit-icon landing-orbit-icon-3">
+                    <Zap className="w-4 h-4" style={{ color: '#FFB020' }} />
+                  </div>
+                  <div className="landing-orbit-icon landing-orbit-icon-4">
+                    <CheckCircle2 className="w-4 h-4" style={{ color: '#26C666' }} />
+                  </div>
+                </div>
+
+                {/* The image */}
                 <div className="landing-float relative z-10">
                   <img
                     src="/images/whatsapp-mockup.png"
@@ -190,61 +211,67 @@ export default function LandingPage() {
                     className="relative z-10 w-full mx-auto"
                     onError={(e) => {
                       e.target.style.display = 'none';
-                      e.target.parentElement.nextSibling.style.display = 'block';
+                      e.target.parentElement.parentElement.querySelector('.landing-fallback').style.display = 'block';
                     }}
                   />
                 </div>
 
-                {/* Fallback if image missing — animated cards */}
-                <div style={{ display: 'none' }}>
-                  <div className="relative w-full h-[420px]">
-                    <div className="landing-hero-card landing-hero-card-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(38,198,102,0.15)' }}>
-                          <Smartphone className="w-5 h-5" style={{ color: '#26C666' }} />
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold">New Job Created</div>
-                          <div className="text-xs" style={{ color: '#6B7C93' }}>iPhone 15 Pro Max</div>
-                        </div>
+                {/* Floating glassmorphism mini-badges */}
+                <div className="landing-mini-badge landing-mini-badge-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(38,198,102,0.2)' }}>
+                      <Bell className="w-3.5 h-3.5" style={{ color: '#26C666' }} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Auto Notifications</div>
+                      <div className="text-[10px]" style={{ color: '#6B7C93' }}>Instant delivery</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="landing-mini-badge landing-mini-badge-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.2)' }}>
+                      <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#3b82f6' }} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Ready for Pickup</div>
+                      <div className="text-[10px]" style={{ color: '#6B7C93' }}>Status sent</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="landing-mini-badge landing-mini-badge-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,176,32,0.2)' }}>
+                      <Zap className="w-3.5 h-3.5" style={{ color: '#FFB020' }} />
+                    </div>
+                    <span className="text-xs font-bold text-white">30s Setup</span>
+                  </div>
+                </div>
+
+                {/* Fallback — Hidden, shown if image fails */}
+                <div className="landing-fallback" style={{ display: 'none' }}>
+                  <div className="landing-card p-0 overflow-hidden landing-pulse-glow relative z-10">
+                    <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#075E54' }}>
+                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                        <WAIcon className="w-4 h-4 text-white" />
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs px-2 py-1 rounded-md font-semibold" style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6' }}>Received</span>
-                        <span className="text-xs" style={{ color: '#6B7C93' }}>Job #2042</span>
+                      <div>
+                        <div className="text-white text-sm font-semibold">RepairTrack</div>
+                        <div className="text-green-200 text-xs">online</div>
                       </div>
                     </div>
-                    <div className="landing-hero-card landing-hero-card-2">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(37,211,102,0.15)' }}>
-                          <WAIcon className="w-5 h-5" style={{ color: '#25D366' }} />
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold">Message Sent</div>
-                          <div className="text-xs" style={{ color: '#6B7C93' }}>to +91 98765 XXXXX</div>
-                        </div>
+                    <div className="p-4 space-y-3" style={{ background: '#0B141A' }}>
+                      <div className="landing-msg-in">
+                        <p className="text-sm flex items-center gap-1.5"><Wrench className="w-3.5 h-3.5" style={{ color: '#26C666' }} /> <strong>Job Received!</strong></p>
+                        <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Your iPhone 15 has been registered for repair.</p>
+                        <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Job ID: <strong className="text-white">JOB-2026-0042</strong></p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" style={{ color: '#26C666' }} />
-                        <span className="text-xs" style={{ color: '#A0B3C6' }}>"Your device is Ready for Pickup"</span>
+                      <div className="landing-msg-in landing-msg-delay-1">
+                        <p className="text-sm flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" style={{ color: '#FFB020' }} /> <strong>Status Update</strong></p>
+                        <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Your device is now: <strong className="text-green-400">Ready for Pickup</strong></p>
                       </div>
-                    </div>
-                    <div className="landing-hero-card landing-hero-card-3">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,176,32,0.15)' }}>
-                          <RefreshCw className="w-5 h-5" style={{ color: '#FFB020' }} />
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold">Status Changed</div>
-                          <div className="text-xs" style={{ color: '#6B7C93' }}>Diagnosing → Repairing</div>
-                        </div>
-                      </div>
-                      <div className="w-full rounded-full h-2" style={{ background: '#1E3A5F' }}>
-                        <div className="h-2 rounded-full landing-progress-animate" style={{ background: 'linear-gradient(90deg, #26C666, #1ED760)', width: '65%' }}></div>
-                      </div>
-                    </div>
-                    <div className="landing-hero-badge">
-                      <Bell className="w-4 h-4 text-white" />
-                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center" style={{ background: '#ef4444', color: 'white' }}>3</span>
                     </div>
                   </div>
                 </div>

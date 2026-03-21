@@ -236,6 +236,13 @@
   0%, 100% { opacity: 0.3; transform: translateX(0); }
   50% { opacity: 0.8; transform: translateX(-100px); }
 }
+.landing-hero-beam-2 {
+  right: auto;
+  left: 20%;
+  width: 1px;
+  animation-delay: 4s;
+  animation-duration: 10s;
+}
 
 /* Diagonal stripe */
 .landing-hero-stripe {
@@ -252,6 +259,150 @@
 @keyframes stripe-drift {
   0%, 100% { transform: rotate(15deg) translateY(0); }
   50% { transform: rotate(15deg) translateY(-30px); }
+}
+
+/* Hex pattern overlay */
+.landing-hero-hex {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: radial-gradient(circle, #26C666 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: radial-gradient(ellipse at 70% 50%, rgba(0,0,0,0.5) 0%, transparent 60%);
+  -webkit-mask-image: radial-gradient(ellipse at 70% 50%, rgba(0,0,0,0.5) 0%, transparent 60%);
+}
+
+/* ── Hero Showcase Container ───────────────────────────────── */
+.landing-hero-showcase {
+  position: relative;
+  perspective: 1000px;
+}
+
+/* Dual glow layers */
+.landing-showcase-glow-1 {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  right: 10%;
+  bottom: 10%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(38,198,102,0.12) 0%, transparent 70%);
+  filter: blur(50px);
+  z-index: 0;
+  animation: glow-pulse-1 4s ease-in-out infinite;
+}
+.landing-showcase-glow-2 {
+  position: absolute;
+  top: 20%;
+  left: 25%;
+  right: 15%;
+  bottom: 20%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(30,58,95,0.3) 0%, transparent 70%);
+  filter: blur(40px);
+  z-index: 0;
+  animation: glow-pulse-2 5s ease-in-out infinite;
+}
+@keyframes glow-pulse-1 {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+@keyframes glow-pulse-2 {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.08); }
+}
+
+/* ── Floating Mini–Badges ──────────────────────────────────── */
+.landing-mini-badge {
+  position: absolute;
+  z-index: 20;
+  background: rgba(10, 31, 51, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(30, 58, 95, 0.5);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.3s ease;
+}
+.landing-mini-badge:hover {
+  border-color: rgba(38, 198, 102, 0.4);
+}
+
+.landing-mini-badge-1 {
+  top: 5%;
+  right: -5%;
+  animation: mini-float-1 5s ease-in-out infinite;
+}
+.landing-mini-badge-2 {
+  bottom: 15%;
+  left: -8%;
+  animation: mini-float-2 6s ease-in-out infinite;
+  animation-delay: 1s;
+}
+.landing-mini-badge-3 {
+  bottom: 5%;
+  right: 5%;
+  animation: mini-float-3 4s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+@keyframes mini-float-1 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+@keyframes mini-float-2 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(-1deg); }
+}
+@keyframes mini-float-3 {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* ── Orbiting Icons ────────────────────────────────────────── */
+.landing-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 400px;
+  height: 400px;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  animation: orbit-spin 30s linear infinite;
+  pointer-events: none;
+}
+.landing-orbit-icon {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(10, 31, 51, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(30, 58, 95, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: orbit-counter-spin 30s linear infinite;
+}
+.landing-orbit-icon-1 { top: 0; left: 50%; transform: translateX(-50%); }
+.landing-orbit-icon-2 { top: 50%; right: 0; transform: translateY(-50%); }
+.landing-orbit-icon-3 { bottom: 0; left: 50%; transform: translateX(-50%); }
+.landing-orbit-icon-4 { top: 50%; left: 0; transform: translateY(-50%); }
+
+@keyframes orbit-spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes orbit-counter-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
+}
+
+@media (max-width: 768px) {
+  .landing-mini-badge { display: none; }
+  .landing-orbit { display: none; }
 }
 
 /* Animated Grid */
