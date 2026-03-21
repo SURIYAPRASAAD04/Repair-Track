@@ -1,5 +1,6 @@
 import { X, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import WhatsAppLogo from './WhatsAppLogo';
+import ConfettiBurst from './ConfettiBurst';
 
 export default function QRModal({ qrCode, onClose, isSuccess, isAuthenticating, isError, onRetry }) {
   return (
@@ -20,12 +21,13 @@ export default function QRModal({ qrCode, onClose, isSuccess, isAuthenticating, 
         
         <div className="p-4 sm:p-8 flex-1 flex flex-col items-center justify-center bg-surface-bg min-h-[300px] relative">
           {isSuccess ? (
-            <div className="flex flex-col items-center animate-in zoom-in duration-300">
-              <div className="w-20 h-20 bg-accent-green/10 rounded-full flex items-center justify-center mb-4">
+            <div className="flex flex-col items-center animate-in zoom-in duration-300 relative">
+              <ConfettiBurst />
+              <div className="w-20 h-20 bg-accent-green/10 rounded-full flex items-center justify-center mb-4 relative z-20">
                  <CheckCircle2 className="w-12 h-12 text-accent-green" />
               </div>
-              <p className="text-text-primary text-lg font-bold">Successfully Connected!</p>
-              <p className="text-text-muted text-sm text-center mt-2">You can now send automated updates.</p>
+              <p className="text-text-primary text-lg font-bold relative z-20">Successfully Connected!</p>
+              <p className="text-text-muted text-sm text-center mt-2 relative z-20">You can now send automated updates.</p>
             </div>
           ) : isError ? (
             <div className="flex flex-col items-center gap-4">

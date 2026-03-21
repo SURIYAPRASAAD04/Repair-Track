@@ -114,3 +114,79 @@
   .status-cannot { @apply bg-red-100 text-red-700 border-red-200; }
   .status-hold { @apply bg-amber-100 text-amber-700 border-amber-200; }
 }
+
+/* ── Confetti / Party Pop Effect ───────────────────────────────────── */
+.confetti-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.confetti-burst .confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  top: 50%;
+  left: 50%;
+  opacity: 0;
+  animation: confetti-pop 1s ease-out forwards;
+}
+
+/* Different shapes */
+.confetti-burst .confetti:nth-child(odd) { border-radius: 50%; }
+.confetti-burst .confetti:nth-child(3n) { width: 6px; height: 10px; border-radius: 1px; }
+.confetti-burst .confetti:nth-child(5n) { width: 10px; height: 6px; border-radius: 3px; }
+
+/* Colors — festive palette */
+.confetti-burst .confetti:nth-child(1)  { background: #25D366; }
+.confetti-burst .confetti:nth-child(2)  { background: #f59e0b; }
+.confetti-burst .confetti:nth-child(3)  { background: #6366f1; }
+.confetti-burst .confetti:nth-child(4)  { background: #ec4899; }
+.confetti-burst .confetti:nth-child(5)  { background: #3b82f6; }
+.confetti-burst .confetti:nth-child(6)  { background: #f97316; }
+.confetti-burst .confetti:nth-child(7)  { background: #25D366; }
+.confetti-burst .confetti:nth-child(8)  { background: #eab308; }
+.confetti-burst .confetti:nth-child(9)  { background: #a855f7; }
+.confetti-burst .confetti:nth-child(10) { background: #ef4444; }
+.confetti-burst .confetti:nth-child(11) { background: #14b8a6; }
+.confetti-burst .confetti:nth-child(12) { background: #f43f5e; }
+.confetti-burst .confetti:nth-child(13) { background: #6366f1; }
+.confetti-burst .confetti:nth-child(14) { background: #25D366; }
+.confetti-burst .confetti:nth-child(15) { background: #f59e0b; }
+.confetti-burst .confetti:nth-child(16) { background: #ec4899; }
+
+/* Each particle flies in a different direction */
+.confetti-burst .confetti:nth-child(1)  { animation-delay: 0ms;   --tx: -60px;  --ty: -90px;  --rot: 340deg; }
+.confetti-burst .confetti:nth-child(2)  { animation-delay: 30ms;  --tx: 70px;   --ty: -80px;  --rot: -200deg; }
+.confetti-burst .confetti:nth-child(3)  { animation-delay: 60ms;  --tx: -90px;  --ty: -40px;  --rot: 280deg; }
+.confetti-burst .confetti:nth-child(4)  { animation-delay: 90ms;  --tx: 50px;   --ty: -100px; --rot: -150deg; }
+.confetti-burst .confetti:nth-child(5)  { animation-delay: 40ms;  --tx: -30px;  --ty: -110px; --rot: 400deg; }
+.confetti-burst .confetti:nth-child(6)  { animation-delay: 70ms;  --tx: 90px;   --ty: -50px;  --rot: -300deg; }
+.confetti-burst .confetti:nth-child(7)  { animation-delay: 100ms; --tx: -80px;  --ty: -70px;  --rot: 250deg; }
+.confetti-burst .confetti:nth-child(8)  { animation-delay: 50ms;  --tx: 40px;   --ty: -120px; --rot: -280deg; }
+.confetti-burst .confetti:nth-child(9)  { animation-delay: 20ms;  --tx: -100px; --ty: -30px;  --rot: 360deg; }
+.confetti-burst .confetti:nth-child(10) { animation-delay: 80ms;  --tx: 80px;   --ty: -60px;  --rot: -220deg; }
+.confetti-burst .confetti:nth-child(11) { animation-delay: 110ms; --tx: -40px;  --ty: -100px; --rot: 300deg; }
+.confetti-burst .confetti:nth-child(12) { animation-delay: 45ms;  --tx: 60px;   --ty: -90px;  --rot: -180deg; }
+.confetti-burst .confetti:nth-child(13) { animation-delay: 75ms;  --tx: -70px;  --ty: -60px;  --rot: 200deg; }
+.confetti-burst .confetti:nth-child(14) { animation-delay: 35ms;  --tx: 100px;  --ty: -40px;  --rot: -320deg; }
+.confetti-burst .confetti:nth-child(15) { animation-delay: 95ms;  --tx: -50px;  --ty: -80px;  --rot: 270deg; }
+.confetti-burst .confetti:nth-child(16) { animation-delay: 55ms;  --tx: 30px;   --ty: -110px; --rot: -250deg; }
+
+@keyframes confetti-pop {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(0);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(var(--tx) * 0.3), calc(var(--ty) * 0.3)) rotate(calc(var(--rot) * 0.3)) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), calc(var(--ty) + 30px)) rotate(var(--rot)) scale(0.6);
+  }
+}

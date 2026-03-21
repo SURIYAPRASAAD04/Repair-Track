@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, CheckCircle2, Smartphone, Loader2, AlertCircle } from 'lucide-react';
 import WhatsAppLogo from './WhatsAppLogo';
+import ConfettiBurst from './ConfettiBurst';
 import api from '../api/axios';
 
 export default function PairingCodeModal({ userId, onClose, onConnected }) {
@@ -152,12 +153,13 @@ export default function PairingCodeModal({ userId, onClose, onConnected }) {
           )}
 
           {step === 'success' && (
-            <div className="flex flex-col items-center py-8 gap-3 animate-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-accent-green/10 rounded-full flex items-center justify-center">
+            <div className="flex flex-col items-center py-8 gap-3 animate-in zoom-in duration-300 relative">
+              <ConfettiBurst />
+              <div className="w-16 h-16 bg-accent-green/10 rounded-full flex items-center justify-center relative z-20">
                 <CheckCircle2 className="w-10 h-10 text-accent-green" />
               </div>
-              <p className="text-lg font-bold text-text-primary">Connected!</p>
-              <p className="text-sm text-text-muted text-center">WhatsApp is now linked. Status updates will be sent automatically.</p>
+              <p className="text-lg font-bold text-text-primary relative z-20">Connected!</p>
+              <p className="text-sm text-text-muted text-center relative z-20">WhatsApp is now linked. Status updates will be sent automatically.</p>
             </div>
           )}
 
