@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Smartphone, BarChart3, RefreshCw, Check, ChevronRight, Zap, Shield, Clock, Phone, Mail, ArrowRight, Sparkles, Send, Star } from 'lucide-react';
+import { MessageSquare, Smartphone, BarChart3, RefreshCw, Check, ChevronRight, Zap, Shield, Clock, Phone, Mail, ArrowRight, Sparkles, Send, Star, Wrench, CheckCircle2, Bell, Lightbulb, Rocket, Heart, Settings, CircleDot } from 'lucide-react';
 import './landing.css';
 
 /* ── WhatsApp redirect URL ───────────────────────────────────── */
@@ -127,7 +127,7 @@ export default function LandingPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 relative z-10">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
             {/* Left */}
             <div ref={useReveal()} className="landing-fade-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-6 landing-badge-glow" style={{ background: 'rgba(38,198,102,0.1)', color: '#26C666', border: '1px solid rgba(38,198,102,0.25)' }}>
@@ -154,59 +154,109 @@ export default function LandingPage() {
               {/* Stats */}
               <div className="flex gap-8 mt-12 pt-8" style={{ borderTop: '1px solid #1E3A5F' }}>
                 {[
-                  { end: 500, suffix: '+', label: 'Messages/Day' },
-                  { end: 99, suffix: '%', label: 'Uptime' },
-                  { end: 30, suffix: 's', label: 'Setup Time' },
+                  { end: 500, suffix: '+', label: 'Messages/Day', icon: Send },
+                  { end: 99, suffix: '%', label: 'Uptime', icon: Shield },
+                  { end: 30, suffix: 's', label: 'Setup Time', icon: Zap },
                 ].map((s, i) => (
                   <div key={i}>
                     <div className="text-2xl sm:text-3xl font-bold landing-gradient-text"><Counter end={s.end} suffix={s.suffix} /></div>
-                    <div className="text-xs font-medium mt-1" style={{ color: '#6B7C93' }}>{s.label}</div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <s.icon className="w-3 h-3" style={{ color: '#6B7C93' }} />
+                      <span className="text-xs font-medium" style={{ color: '#6B7C93' }}>{s.label}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Right — Mockup */}
-            <div ref={useReveal(200)} className="landing-fade-right">
-              <div className="landing-float relative">
-                <div className="landing-mockup-glow"></div>
-                <img
-                  src="/images/whatsapp-mockup.png"
-                  alt="WhatsApp notification mockup"
-                  className="relative z-10 w-full mx-auto"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
-                {/* Fallback — Animated WhatsApp message preview */}
-                <div className="relative z-10 w-full max-w-sm mx-auto" style={{ display: 'none' }}>
-                  <div className="landing-card p-0 overflow-hidden landing-pulse-glow">
-                    {/* Phone header */}
-                    <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#075E54' }}>
-                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                        <WAIcon className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <div className="text-white text-sm font-semibold">RepairTrack</div>
-                        <div className="text-green-200 text-xs">online</div>
-                      </div>
+            {/* Right — Animated Interactive Cards */}
+            <div ref={useReveal(200)} className="landing-fade-right hidden md:block">
+              <div className="relative w-full h-[480px]">
+                {/* Center glow ring */}
+                <div className="landing-hero-ring"></div>
+
+                {/* Floating Feature Card 1 — Job Tracking */}
+                <div className="landing-hero-card landing-hero-card-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(38,198,102,0.15)' }}>
+                      <Smartphone className="w-5 h-5" style={{ color: '#26C666' }} />
                     </div>
-                    {/* Messages */}
-                    <div className="p-4 space-y-3" style={{ background: '#0B141A' }}>
-                      <div className="landing-msg-in">
-                        <p className="text-sm">🔧 <strong>Job Received!</strong></p>
-                        <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Your iPhone 15 has been registered for repair.</p>
-                        <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Job ID: <strong className="text-white">JOB-2026-0042</strong></p>
-                        <p className="text-[10px] mt-2 text-right" style={{ color: '#6B7C93' }}>10:30 AM ✓✓</p>
-                      </div>
-                      <div className="landing-msg-in landing-msg-delay-1">
-                        <p className="text-sm">⚡ <strong>Status Update</strong></p>
-                        <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Your device is now: <strong className="text-green-400">Ready for Pickup</strong></p>
-                        <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Final amount: ₹1,500</p>
-                        <p className="text-[10px] mt-2 text-right" style={{ color: '#6B7C93' }}>2:15 PM ✓✓</p>
-                      </div>
+                    <div>
+                      <div className="text-sm font-bold">New Job Created</div>
+                      <div className="text-xs" style={{ color: '#6B7C93' }}>iPhone 15 Pro Max</div>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs px-2 py-1 rounded-md font-semibold" style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6' }}>Received</span>
+                    <span className="text-xs" style={{ color: '#6B7C93' }}>Job #2042</span>
+                  </div>
+                </div>
+
+                {/* Floating Feature Card 2 — WhatsApp Message */}
+                <div className="landing-hero-card landing-hero-card-2">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(37,211,102,0.15)' }}>
+                      <WAIcon className="w-5 h-5" style={{ color: '#25D366' }} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">Message Sent</div>
+                      <div className="text-xs" style={{ color: '#6B7C93' }}>to +91 98765 XXXXX</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" style={{ color: '#26C666' }} />
+                    <span className="text-xs" style={{ color: '#A0B3C6' }}>"Your device is Ready for Pickup"</span>
+                  </div>
+                </div>
+
+                {/* Floating Feature Card 3 — Status Update */}
+                <div className="landing-hero-card landing-hero-card-3">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,176,32,0.15)' }}>
+                      <RefreshCw className="w-5 h-5" style={{ color: '#FFB020' }} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">Status Changed</div>
+                      <div className="text-xs" style={{ color: '#6B7C93' }}>Diagnosing → Repairing</div>
+                    </div>
+                  </div>
+                  <div className="w-full rounded-full h-2" style={{ background: '#1E3A5F' }}>
+                    <div className="h-2 rounded-full landing-progress-animate" style={{ background: 'linear-gradient(90deg, #26C666, #1ED760)', width: '65%' }}></div>
+                  </div>
+                </div>
+
+                {/* Floating notification badge */}
+                <div className="landing-hero-badge">
+                  <Bell className="w-4 h-4 text-white" />
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center" style={{ background: '#ef4444', color: 'white' }}>3</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile — Simple WhatsApp preview */}
+            <div className="md:hidden">
+              <div className="landing-card p-0 overflow-hidden landing-pulse-glow">
+                <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#075E54' }}>
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                    <WAIcon className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-white text-sm font-semibold">RepairTrack</div>
+                    <div className="text-green-200 text-xs">online</div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3" style={{ background: '#0B141A' }}>
+                  <div className="landing-msg-in">
+                    <p className="text-sm flex items-center gap-1.5"><Wrench className="w-3.5 h-3.5 inline" style={{ color: '#26C666' }} /> <strong>Job Received!</strong></p>
+                    <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Your iPhone 15 has been registered for repair.</p>
+                    <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Job ID: <strong className="text-white">JOB-2026-0042</strong></p>
+                    <p className="text-[10px] mt-2 text-right flex items-center justify-end gap-1" style={{ color: '#6B7C93' }}>10:30 AM <CheckCircle2 className="w-3 h-3" style={{ color: '#26C666' }} /></p>
+                  </div>
+                  <div className="landing-msg-in landing-msg-delay-1">
+                    <p className="text-sm flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 inline" style={{ color: '#FFB020' }} /> <strong>Status Update</strong></p>
+                    <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Your device is now: <strong className="text-green-400">Ready for Pickup</strong></p>
+                    <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>Final amount: ₹1,500</p>
+                    <p className="text-[10px] mt-2 text-right flex items-center justify-end gap-1" style={{ color: '#6B7C93' }}>2:15 PM <CheckCircle2 className="w-3 h-3" style={{ color: '#26C666' }} /></p>
                   </div>
                 </div>
               </div>
@@ -279,13 +329,13 @@ export default function LandingPage() {
             <div className="hidden md:block absolute top-24 left-[20%] right-[20%] h-0.5 landing-line-animate" style={{ background: 'linear-gradient(90deg, transparent, #26C666, transparent)' }}></div>
 
             {[
-              { step: '01', title: 'Create Job', desc: 'Log the customer device, issue, and cost. Takes just 30 seconds.', icon: Smartphone, emoji: '📱' },
-              { step: '02', title: 'Update Status', desc: 'Change status as repair progresses — Received → Diagnosing → Ready.', icon: RefreshCw, emoji: '🔄' },
-              { step: '03', title: 'Customer Notified', desc: 'Customer gets a professional WhatsApp message instantly. Zero effort.', icon: Send, emoji: '✅' },
+              { step: '01', title: 'Create Job', desc: 'Log the customer device, issue, and cost. Takes just 30 seconds.', icon: Smartphone },
+              { step: '02', title: 'Update Status', desc: 'Change status as repair progresses — Received → Diagnosing → Ready.', icon: RefreshCw },
+              { step: '03', title: 'Customer Notified', desc: 'Customer gets a professional WhatsApp message instantly. Zero effort.', icon: Send },
             ].map((item, i) => (
               <div key={i} ref={useReveal(i * 200)} className="landing-fade-up landing-card text-center relative z-10 group landing-card-hover">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 text-2xl font-extrabold transition-all group-hover:scale-110 group-hover:shadow-lg" style={{ background: '#26C666', color: '#041423', boxShadow: '0 0 30px rgba(38,198,102,0.2)' }}>
-                  {item.emoji}
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-all group-hover:scale-110 group-hover:shadow-lg" style={{ background: '#26C666', color: '#041423', boxShadow: '0 0 30px rgba(38,198,102,0.2)' }}>
+                  <item.icon className="w-7 h-7" />
                 </div>
                 <div className="text-xs font-bold mb-3 tracking-widest" style={{ color: '#26C666' }}>STEP {item.step}</div>
                 <h3 className="text-xl font-bold mb-3">{item.title}</h3>
@@ -308,17 +358,17 @@ export default function LandingPage() {
               </div>
               <div className="p-4 space-y-3" style={{ background: '#0B141A' }}>
                 <div className="landing-msg-in">
-                  <p className="text-sm font-medium">🔧 <strong>Repair Status Update</strong></p>
+                  <p className="text-sm font-medium flex items-center gap-1.5"><Wrench className="w-3.5 h-3.5 inline" style={{ color: '#26C666' }} /> <strong>Repair Status Update</strong></p>
                   <p className="text-xs mt-2 leading-relaxed" style={{ color: '#A0B3C6' }}>
                     Hi Ravi! Your <strong className="text-white">Samsung Galaxy S24</strong> is now <strong className="text-green-400">Ready for Pickup!</strong>
                   </p>
                   <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>
                     Final amount: <strong className="text-white">₹2,500</strong>
                   </p>
-                  <p className="text-xs mt-1" style={{ color: '#A0B3C6' }}>
-                    Thank you for choosing our service! 🙏
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#A0B3C6' }}>
+                    Thank you for choosing our service! <Heart className="w-3 h-3 inline" style={{ color: '#ef4444' }} />
                   </p>
-                  <p className="text-[10px] mt-2 text-right" style={{ color: '#6B7C93' }}>2:30 PM ✓✓</p>
+                  <p className="text-[10px] mt-2 text-right flex items-center justify-end gap-1" style={{ color: '#6B7C93' }}>2:30 PM <CheckCircle2 className="w-3 h-3" style={{ color: '#26C666' }} /></p>
                 </div>
               </div>
             </div>
@@ -427,8 +477,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <p className="text-center text-xs mt-6" style={{ color: '#6B7C93' }}>
-            💡 New customers: Setup Cost + Minimum 3 Months (Quarterly). Example (Starter): ₹499 + ₹549 = <strong className="text-white">₹1,048</strong> first payment.
+          <p className="text-center text-xs mt-6 flex items-center justify-center gap-1.5" style={{ color: '#6B7C93' }}>
+            <Lightbulb className="w-3.5 h-3.5 shrink-0" style={{ color: '#FFB020' }} /> New customers: Setup Cost + Minimum 3 Months (Quarterly). Example (Starter): ₹499 + ₹549 = <strong className="text-white">₹1,048</strong> first payment.
           </p>
         </div>
       </section>
@@ -438,7 +488,7 @@ export default function LandingPage() {
         <div className="landing-hero-grid opacity-20"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl" style={{ background: 'radial-gradient(circle, rgba(38,198,102,0.08), transparent 70%)' }}></div>
         <div ref={useReveal()} className="landing-fade-up max-w-3xl mx-auto text-center px-4 relative z-10">
-          <div className="text-5xl mb-6">🚀</div>
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ background: 'rgba(38,198,102,0.15)' }}><Rocket className="w-8 h-8" style={{ color: '#26C666' }} /></div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-6">
             Ready to <span className="landing-gradient-text">automate</span> your<br />customer updates?
           </h2>
