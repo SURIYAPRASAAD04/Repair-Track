@@ -16,6 +16,27 @@ const Job = require('../models/Job');
 const clients = {};
 const logger = pino({ level: 'warn' });
 
+// ── Session Idle Timeout ────────────────────────────────────────────────────
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+// Reset idle timer for a session — closes session after inactivity
+function resetIdleTimer(userId) {
+  const session = clients[userId];
+  if (!session) return;
+  if (session._idleTimer) clearTimeout(session._idleTimer);
+  session.lastActivity = Date.now();
+  session._idleTimer = setTimeout(() => {
+    if (clients[userId]?.ready) {
+      console.log(`[WhatsApp] ⏰ Session idle for 30min, closing ${userId} (auth preserved)`);
+      try { clients[userId].sock?.end(); } catch (e) {}
+      // Don't delete auth files — just free memory. Session will auto-reconnect on next send.
+      if (clients[userId]?._stableTimer) clearTimeout(clients[userId]._stableTimer);
+      delete clients[userId];
+      // Don't update DB — whatsappConnected stays true so sendMessage will reconnect
+    }
+  }, IDLE_TIMEOUT_MS);
+}
+
 // Dynamic import — @whiskeysockets/baileys is ESM
 let _baileys = null;
 async function loadBaileys() {
@@ -163,6 +184,8 @@ async function createSession(userId, pairingPhone = null) {
         await Shop.findByIdAndUpdate(userId, { whatsappConnected: true }).catch(e =>
           console.error('[WhatsApp] DB error:', e.message)
         );
+        // Start idle timer — session will auto-close after 30 min of no messages
+        resetIdleTimer(userId);
       }
 
       // Connecting
@@ -329,11 +352,30 @@ try {
 
 async function sendMessage(userId, phone, message, jobId = null, customerName = null, triggerEvent = 'manual_message') {
   return enqueue(userId, async () => {
-    const session = clients[userId];
+    // Auto-reconnect if session was idle-closed but auth files exist
+    let session = clients[userId];
     if (!session || !session.ready || !session.sock) {
-      await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
-      throw new Error('WhatsApp not connected');
+      const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
+      if (fs.existsSync(authDir)) {
+        console.log(`[WhatsApp] Auto-reconnecting idle session for ${userId}`);
+        await createSession(userId);
+        // Wait for connection (max 10s)
+        let waited = 0;
+        while (waited < 10000) {
+          if (clients[userId]?.ready) break;
+          await new Promise(r => setTimeout(r, 500));
+          waited += 500;
+        }
+        session = clients[userId];
+      }
+      if (!session || !session.ready || !session.sock) {
+        await Shop.findByIdAndUpdate(userId, { whatsappConnected: false }).catch(() => {});
+        throw new Error('WhatsApp not connected');
+      }
     }
+
+    // Reset idle timer on activity
+    resetIdleTimer(userId);
 
     let cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
@@ -415,6 +457,7 @@ async function sendMessage(userId, phone, message, jobId = null, customerName = 
 async function disconnectSession(userId) {
   if (clients[userId]) {
     if (clients[userId]._stableTimer) clearTimeout(clients[userId]._stableTimer);
+    if (clients[userId]._idleTimer) clearTimeout(clients[userId]._idleTimer);
     try { await clients[userId].sock?.logout(); } catch (e) {}
     try { clients[userId].sock?.end(); } catch (e) {}
     const authDir = path.join(__dirname, '../.baileys_auth', `session-${userId}`);
@@ -425,9 +468,42 @@ async function disconnectSession(userId) {
   return { success: true };
 }
 
+// ── Periodic Auto-Cleanup (every 30 min) ────────────────────────────────
+
+setInterval(() => {
+  let cleaned = 0;
+
+  // Clean orphaned sessions (no socket, not authenticating)
+  for (const userId in clients) {
+    const session = clients[userId];
+    if (!session.sock && !session.authenticating && !session.ready) {
+      if (session._stableTimer) clearTimeout(session._stableTimer);
+      if (session._idleTimer) clearTimeout(session._idleTimer);
+      delete clients[userId];
+      cleaned++;
+    }
+  }
+
+  // Clean up resolved/empty sendQueues
+  for (const userId in sendQueues) {
+    if (!clients[userId]) {
+      delete sendQueues[userId];
+      cleaned++;
+    }
+  }
+
+  if (cleaned > 0) {
+    console.log(`[WhatsApp] 🧹 Auto-cleanup: removed ${cleaned} orphaned entries`);
+  }
+}, 30 * 60 * 1000); // Every 30 minutes
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  for (const id in clients) { try { clients[id].sock?.end(); } catch (e) {} }
+  for (const id in clients) {
+    if (clients[id]._idleTimer) clearTimeout(clients[id]._idleTimer);
+    if (clients[id]._stableTimer) clearTimeout(clients[id]._stableTimer);
+    try { clients[id].sock?.end(); } catch (e) {}
+  }
   process.exit(0);
 });
 

@@ -11,7 +11,7 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Please provide email and password' });
     }
 
-    const user = await Shop.findOne({ email });
+    const user = await Shop.findOne({ email }).select('_id ownerName email shopName password whatsappConnected');
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }

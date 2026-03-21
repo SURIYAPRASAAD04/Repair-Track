@@ -4,7 +4,7 @@ const verifySubscription = async (req, res, next) => {
   try {
     const shopId = req.user.id; // user ID is the shopId
     
-    const subscription = await Subscription.findOne({ shopId });
+    const subscription = await Subscription.findOne({ shopId }).select('status startDate endDate plan');
     if (!subscription) {
       return res.status(403).json({ error: 'SUBSCRIPTION_EXPIRED', message: 'No subscription found' });
     }

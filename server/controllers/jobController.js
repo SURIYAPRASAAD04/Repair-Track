@@ -12,7 +12,7 @@ const generateJobId = async () => {
   const year = date.getFullYear();
   
   // Find latest job to increment counter
-  const latestJob = await Job.findOne().sort({ createdAt: -1 });
+  const latestJob = await Job.findOne().select('jobId').sort({ createdAt: -1 });
   let counter = 1;
   
   if (latestJob && latestJob.jobId && latestJob.jobId.includes(year)) {
@@ -39,7 +39,7 @@ const createJob = async (req, res) => {
     }
 
     // 1. Handle Customer (Find existing or Create new)
-    let customer = await Customer.findOne({ phone: customerInfo.phone, shopOwnerId });
+    let customer = await Customer.findOne({ phone: customerInfo.phone, shopOwnerId }).select('_id name phone');
     if (!customer) {
       customer = await Customer.create({
         name: customerInfo.name,
@@ -81,7 +81,7 @@ const createJob = async (req, res) => {
     });
 
     // 4. Fetch the shop owner to pass the shopName to the notification service
-    const shopOwner = await Shop.findById(shopOwnerId);
+    const shopOwner = await Shop.findById(shopOwnerId).select('shopName whatsappConnected _id');
     
     // 5. Populate customer data for the notification service and trigger the WhatsApp message
     await job.populate('customer');
@@ -141,6 +141,7 @@ const getJobs = async (req, res) => {
 
     // Add search logic if provided
     let jobsQuery = Job.find(query)
+      .select('jobId customer deviceType brand model status estimatedCost estimatedDelivery createdAt updatedAt')
       .populate('customer', 'name phone')
       .sort({ updatedAt: -1 });
       
@@ -192,7 +193,7 @@ const updateJobStatus = async (req, res) => {
     }
 
     const previousStatus = job.status;
-    const shopOwner = await Shop.findById(req.user.id);
+    const shopOwner = await Shop.findById(req.user.id).select('shopName whatsappConnected _id');
 
     // Update status and history in DB FIRST (fast)
     job.status = status;

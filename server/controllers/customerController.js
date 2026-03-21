@@ -2,7 +2,7 @@ const Customer = require('../models/Customer');
 
 const getCustomers = async (req, res) => {
   try {
-    const customers = await Customer.find({ shopOwnerId: req.user.id }).sort({ createdAt: -1 });
+    const customers = await Customer.find({ shopOwnerId: req.user.id }).select('name phone createdAt').sort({ createdAt: -1 });
     res.status(200).json(customers);
   } catch (error) {
     res.status(500).json({ error: 'Server error fetching customers' });
@@ -21,7 +21,7 @@ const searchCustomers = async (req, res) => {
         { name: { $regex: query, $options: 'i' } },
         { phone: { $regex: query, $options: 'i' } }
       ]
-    }).limit(10);
+    }).select('name phone').limit(10);
     
     res.status(200).json(customers);
   } catch (error) {

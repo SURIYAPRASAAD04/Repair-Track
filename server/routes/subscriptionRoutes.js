@@ -9,7 +9,7 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
   try {
     const shopId = req.user.id;
-    const subscription = await Subscription.findOne({ shopId });
+    const subscription = await Subscription.findOne({ shopId }).select('plan status startDate endDate billingCycle amountPaid');
     
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
