@@ -141,7 +141,7 @@ const getJobs = async (req, res) => {
 
     // Add search logic if provided
     let jobsQuery = Job.find(query)
-      .select('jobId customer deviceType brand model status estimatedCost estimatedDelivery createdAt updatedAt')
+      .select('jobId customer deviceType brand model status estimatedCost estimatedDelivery reportedIssue paymentStatus createdAt updatedAt')
       .populate('customer', 'name phone')
       .sort({ updatedAt: -1 });
       
